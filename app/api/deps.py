@@ -1,0 +1,43 @@
+from fastapi import Depends, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.core.exceptions import ForbiddenError, UnauthorizedError
+from app.core.security import decode_token
+from app.models.user import User
+
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> User:
+    """
+    Extract and validate the JWT from the Authorization header.
+    Returns the authenticated User or raises UnauthorizedError.
+    """
+    if not credentials:
+        raise UnauthorizedError("Authorization header missing.")
+
+    try:
+        payload = decode_token(credentials.credentials)
+    except JWTError:
+        raise UnauthorizedError("Token is invalid or expired.")
+
+    if payload.get("type") != "access":
+        raise UnauthorizedError("Token is not an access token.")
+
+    user = db.query(User).filter(User.id == int(payload["sub"])).first()
+    if not user:
+        raise UnauthorizedError("User not found.")
+    if not user.is_active:
+        raise ForbiddenError("Account is disabled.")
+    return user
+
+
+def get_current_active_user(user: User = Depends(get_current_user)) -> User:
+    """Alias — ensures user is active (already checked in get_current_user)."""
+    return user

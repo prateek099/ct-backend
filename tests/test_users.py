@@ -1,72 +1,55 @@
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-from app.core.database import Base, get_db
-from app.main import app
-
-# In-memory SQLite for tests
-TEST_DB_URL = "sqlite:///./test.db"
-engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
-TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+"""Tests for /api/v1/users/* endpoints (all protected)."""
 
 
-def override_get_db():
-    db = TestingSession()
-    try:
-        yield db
-    finally:
-        db.close()
+def test_list_users_requires_auth(client):
+    res = client.get("/api/v1/users/")
+    assert res.status_code == 401
 
 
-app.dependency_overrides[get_db] = override_get_db
-
-
-@pytest.fixture(autouse=True)
-def setup_db():
-    Base.metadata.create_all(bind=engine)
-    yield
-    Base.metadata.drop_all(bind=engine)
-
-
-client = TestClient(app)
-
-
-def test_health():
-    res = client.get("/health")
-    assert res.status_code == 200
-    assert res.json()["status"] == "ok"
-
-
-def test_create_and_get_user():
-    # Create
-    res = client.post("/api/v1/users/", json={"name": "Alice", "email": "alice@example.com"})
+def test_create_and_get_user(client, auth_headers):
+    res = client.post("/api/v1/users/", json={
+        "name": "Bob",
+        "email": "bob@example.com",
+        "password": "bobpass",
+    }, headers=auth_headers)
     assert res.status_code == 201
     user = res.json()
-    assert user["name"] == "Alice"
-    assert user["id"] is not None
+    assert user["name"] == "Bob"
+    assert user["is_active"] is True
 
-    # Get by ID
-    res = client.get(f"/api/v1/users/{user['id']}")
+    res = client.get(f"/api/v1/users/{user['id']}", headers=auth_headers)
     assert res.status_code == 200
-    assert res.json()["email"] == "alice@example.com"
+    assert res.json()["email"] == "bob@example.com"
 
 
-def test_get_user_not_found():
-    res = client.get("/api/v1/users/999")
+def test_get_user_not_found(client, auth_headers):
+    res = client.get("/api/v1/users/999", headers=auth_headers)
     assert res.status_code == 404
 
 
-def test_list_users():
-    client.post("/api/v1/users/", json={"name": "Bob", "email": "bob@example.com"})
-    res = client.get("/api/v1/users/")
+def test_list_users(client, auth_headers):
+    client.post("/api/v1/users/", json={
+        "name": "Carol", "email": "carol@example.com", "password": "pass"
+    }, headers=auth_headers)
+    res = client.get("/api/v1/users/", headers=auth_headers)
     assert res.status_code == 200
     assert len(res.json()) >= 1
 
 
-def test_delete_user():
-    res = client.post("/api/v1/users/", json={"name": "Charlie", "email": "charlie@example.com"})
+def test_delete_user(client, auth_headers):
+    res = client.post("/api/v1/users/", json={
+        "name": "Dave", "email": "dave@example.com", "password": "pass"
+    }, headers=auth_headers)
     user_id = res.json()["id"]
-    res = client.delete(f"/api/v1/users/{user_id}")
+    res = client.delete(f"/api/v1/users/{user_id}", headers=auth_headers)
     assert res.status_code == 204
+
+    res = client.get(f"/api/v1/users/{user_id}", headers=auth_headers)
+    assert res.status_code == 404
+
+
+def test_duplicate_email(client, auth_headers):
+    payload = {"name": "Eve", "email": "eve@example.com", "password": "pass"}
+    client.post("/api/v1/users/", json=payload, headers=auth_headers)
+    res = client.post("/api/v1/users/", json=payload, headers=auth_headers)
+    assert res.status_code == 409
