@@ -1,26 +1,25 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
+from jose import jwt
 
 from app.core.config import settings
 
-# ── Password hashing ──────────────────────────────────────────────────────────
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
+# ── Password hashing (direct bcrypt — compatible with bcrypt 4.x and 5.x) ────
 
 def hash_password(plain: str) -> str:
     """Hash a plain-text password using bcrypt."""
-    return pwd_context.hash(plain)
+    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    """Return True if plain matches the hashed password."""
-    return pwd_context.verify(plain, hashed)
+    """Return True if plain matches the stored bcrypt hash."""
+    return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 
 # ── JWT ───────────────────────────────────────────────────────────────────────
+
 def _create_token(subject: Any, expires_delta: timedelta, token_type: str) -> str:
     expire = datetime.now(timezone.utc) + expires_delta
     payload = {
