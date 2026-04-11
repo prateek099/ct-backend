@@ -22,12 +22,47 @@ FastAPI backend for Creator Tools — JWT auth, SQLAlchemy 2.0, structured loggi
 
 ---
 
+## Git & Repository
+
+```bash
+# Clone this repo
+git clone https://github.com/prateek099/ct-backend.git
+cd ct-backend
+
+# Check status of working tree
+git status
+
+# Stage and commit changes
+git add <file>                         # stage a specific file
+git add -p                             # interactively stage hunks
+git commit -m "feat: describe change"
+
+# Push to remote
+git push origin main
+
+# Create and switch to a feature branch
+git checkout -b feat/my-feature
+
+# Pull latest changes
+git pull origin main
+
+# Merge feature branch into main
+git checkout main
+git merge feat/my-feature
+
+# Delete a branch after merging
+git branch -d feat/my-feature          # local
+git push origin --delete feat/my-feature  # remote
+```
+
+---
+
 ## Quick Start — no Docker, SQLite (fastest)
 
 Works on Mac and Windows. No database setup required.
 
 ```bash
-git clone <repo-url> ct-backend && cd ct-backend
+git clone https://github.com/prateek099/ct-backend.git ct-backend && cd ct-backend
 cp .env.example .env          # Windows: Copy-Item .env.example .env
 poetry install
 poetry run uvicorn app.main:app --reload
@@ -74,7 +109,7 @@ poetry --version            # Poetry (version 1.8.4)
 **3 — Clone and install dependencies**
 
 ```bash
-git clone <repo-url> ct-backend
+git clone https://github.com/prateek099/ct-backend.git ct-backend
 cd ct-backend
 poetry install              # creates .venv, installs all deps from poetry.lock
 ```
@@ -147,7 +182,7 @@ poetry --version            # Poetry (version 1.8.4)
 **3 — Clone and install dependencies**
 
 ```powershell
-git clone <repo-url> ct-backend
+git clone https://github.com/prateek099/ct-backend.git ct-backend
 cd ct-backend
 poetry install
 ```
