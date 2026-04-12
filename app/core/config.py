@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     # CORS — comma-separated list of allowed origins
     cors_origins: str = "http://localhost:5173"
 
+    # External APIs
+    openai_api_key: str = ""
+    youtube_api_key: str = ""
+
     # Logging
     log_level: str = "INFO"
     log_format: str = "json"  # "json" | "pretty"

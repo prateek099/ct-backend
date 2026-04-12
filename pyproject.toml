@@ -21,6 +21,9 @@ python-jose = { extras = ["cryptography"], version = "^3.3" }
 loguru = "^0.7"
 # Rate limiting
 slowapi = "^0.1.9"
+# AI / external APIs
+openai = "^2.0"
+google-api-python-client = ">=2.0.0"
 
 [tool.poetry.group.dev.dependencies]
 debugpy = "^1.8"

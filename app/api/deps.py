@@ -41,3 +41,25 @@ def get_current_user(
 def get_current_active_user(user: User = Depends(get_current_user)) -> User:
     """Alias — ensures user is active (already checked in get_current_user)."""
     return user
+
+
+def require_valid_token(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> dict:
+    """
+    Validate JWT signature and type only — no DB lookup.
+    Works for demo tokens (sub='demo') and real user tokens alike.
+    Use this dependency on AI/YouTube routes that don't need a User object.
+    """
+    if not credentials:
+        raise UnauthorizedError("Authorization header missing.")
+
+    try:
+        payload = decode_token(credentials.credentials)
+    except JWTError:
+        raise UnauthorizedError("Token is invalid or expired.")
+
+    if payload.get("type") != "access":
+        raise UnauthorizedError("Token is not an access token.")
+
+    return payload

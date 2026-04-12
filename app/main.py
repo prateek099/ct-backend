@@ -6,7 +6,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from app.api.routes import auth, users
+from app.api.routes import auth, users, login, video_idea_gen, script_generator, title_suggestor, seo_description
+from app.api.routes import youtube as yt
 from app.core.config import settings
 from app.core.database import Base, engine
 from app.core.exceptions import register_exception_handlers
@@ -60,6 +61,12 @@ register_exception_handlers(app)
 # ── Routes ────────────────────────────────────────────────────────────────────
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
+app.include_router(login.router, prefix="/api/v1")
+app.include_router(video_idea_gen.router, prefix="/api/v1")
+app.include_router(script_generator.router, prefix="/api/v1")
+app.include_router(title_suggestor.router, prefix="/api/v1")
+app.include_router(seo_description.router, prefix="/api/v1")
+app.include_router(yt.router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["system"])
