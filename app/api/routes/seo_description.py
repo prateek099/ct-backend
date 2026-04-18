@@ -3,9 +3,13 @@ from loguru import logger
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
-from app.api.deps import require_valid_token
-from app.api_wrappers.open_ai import openai_wrapper
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_optional_user
+from app.core.database import get_db
 from app.core.exceptions import AppError, BadRequestError
+from app.models.user import User
+from app.services.llm_tracker import track_openai_call
 
 router = APIRouter()
 
@@ -161,7 +165,8 @@ class SeoResponse(BaseModel):
 )
 def generate_seo_description(
     request: SeoRequest,
-    _token: dict = Depends(require_valid_token),
+    user: User | None = Depends(get_optional_user),
+    db: Session = Depends(get_db),
 ) -> SeoResponse:
     if not request.title.strip():
         raise BadRequestError("Title cannot be empty")
@@ -170,7 +175,10 @@ def generate_seo_description(
 
     logger.info("SEO description gen", title=request.title[:60])
     system_prompt, user_prompt = _build_prompts(request)
-    output = openai_wrapper(user_prompt, system_prompt=system_prompt)
+    output = track_openai_call(
+        db, user=user, endpoint="seo_description",
+        user_prompt=user_prompt, system_prompt=system_prompt,
+    )
 
     if "error" in output:
         raise AppError(output["error"])

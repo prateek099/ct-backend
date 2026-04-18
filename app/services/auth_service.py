@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from app.core import messages
 from app.core.exceptions import ConflictError, UnauthorizedError
 from app.core.security import (
     create_access_token,
@@ -15,7 +16,7 @@ from app.services.user_service import get_user_by_email
 
 def register(db: Session, payload: RegisterRequest) -> User:
     if get_user_by_email(db, payload.email):
-        raise ConflictError(f"Email '{payload.email}' is already registered.")
+        raise ConflictError(messages.EMAIL_ALREADY_REGISTERED)
     user = User(
         name=payload.name,
         email=payload.email,
@@ -30,10 +31,11 @@ def register(db: Session, payload: RegisterRequest) -> User:
 def login(db: Session, payload: LoginRequest) -> TokenResponse:
     user = get_user_by_email(db, payload.email)
     if not user or not verify_password(payload.password, user.hashed_password):
-        raise UnauthorizedError("Invalid email or password.")
+        raise UnauthorizedError(messages.INVALID_CREDENTIALS)
     if not user.is_active:
-        raise UnauthorizedError("Account is disabled.")
+        raise UnauthorizedError(messages.ACCOUNT_DISABLED)
     return TokenResponse(
+        name=user.name,
         access_token=create_access_token(user.id),
         refresh_token=create_refresh_token(user.id),
     )
@@ -43,16 +45,17 @@ def refresh_tokens(db: Session, refresh_token: str) -> TokenResponse:
     try:
         payload = decode_token(refresh_token)
     except Exception:
-        raise UnauthorizedError("Invalid or expired refresh token.")
+        raise UnauthorizedError(messages.TOKEN_INVALID_OR_EXPIRED)
 
     if payload.get("type") != "refresh":
-        raise UnauthorizedError("Token is not a refresh token.")
+        raise UnauthorizedError(messages.TOKEN_NOT_REFRESH)
 
     user = db.query(User).filter(User.id == int(payload["sub"])).first()
     if not user or not user.is_active:
-        raise UnauthorizedError("User not found or inactive.")
+        raise UnauthorizedError(messages.USER_NOT_FOUND_OR_INACTIVE)
 
     return TokenResponse(
+        name=user.name,
         access_token=create_access_token(user.id),
         refresh_token=create_refresh_token(user.id),
     )

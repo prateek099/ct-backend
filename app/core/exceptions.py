@@ -4,6 +4,8 @@ from fastapi.responses import JSONResponse
 from jose import JWTError
 from loguru import logger
 
+from app.core import messages
+
 
 # ── Custom exception classes ──────────────────────────────────────────────────
 
@@ -111,7 +113,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         logger.warning("JWTError", detail=str(exc), path=request.url.path)
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            content=_error_body("INVALID_TOKEN", "Token is invalid or expired.", request_id),
+            content=_error_body("INVALID_TOKEN", messages.TOKEN_INVALID_OR_EXPIRED, request_id),
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -125,5 +127,5 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=_error_body("INTERNAL_ERROR", "An unexpected error occurred.", request_id),
+            content=_error_body("INTERNAL_ERROR", messages.INTERNAL_ERROR, request_id),
         )

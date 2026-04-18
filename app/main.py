@@ -8,8 +8,9 @@ from slowapi.util import get_remote_address
 
 from app.api.routes import auth, users, login, video_idea_gen, script_generator, title_suggestor, seo_description
 from app.api.routes import youtube as yt
-from app.core.config import settings
+from app.core.config import settings, check_optional_settings
 from app.core.database import Base, engine
+import app.models  # noqa: F401 — registers all models with Base.metadata
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import setup_logging
 from app.middleware.logging import RequestLoggingMiddleware
@@ -24,6 +25,7 @@ if os.getenv("DEBUG", "false").lower() == "true":
 
 # ── Logging — must be first ──────────────────────────────────────────────────
 setup_logging()
+check_optional_settings()
 
 # ── DB bootstrap ─────────────────────────────────────────────────────────────
 Base.metadata.create_all(bind=engine)

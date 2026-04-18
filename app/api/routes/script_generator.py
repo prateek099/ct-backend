@@ -3,9 +3,13 @@ from loguru import logger
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
-from app.api.deps import require_valid_token
-from app.api_wrappers.open_ai import openai_wrapper
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_optional_user
+from app.core.database import get_db
 from app.core.exceptions import AppError, BadRequestError
+from app.models.user import User
+from app.services.llm_tracker import track_openai_call
 
 router = APIRouter()
 
@@ -163,14 +167,18 @@ class ScriptResponse(BaseModel):
 )
 def generate_script(
     request: ScriptRequest,
-    _token: dict = Depends(require_valid_token),
+    user: User | None = Depends(get_optional_user),
+    db: Session = Depends(get_db),
 ) -> ScriptResponse:
     if not request.title.strip():
         raise BadRequestError("Title cannot be empty")
 
     logger.info("Script gen", title=request.title[:60], flavor=request.flavor)
     system_prompt, user_prompt = _build_prompts(request)
-    output = openai_wrapper(user_prompt, system_prompt=system_prompt)
+    output = track_openai_call(
+        db, user=user, endpoint="script_generator",
+        user_prompt=user_prompt, system_prompt=system_prompt,
+    )
 
     if "error" in output:
         raise AppError(output["error"])

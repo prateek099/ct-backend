@@ -16,7 +16,8 @@ def _get_client() -> OpenAI:
     global _client
     if _client is None:
         if not settings.openai_api_key:
-            raise AppError("OPENAI_API_KEY is not configured")
+            logger.error("OPENAI_API_KEY is not configured — set it in .env")
+            raise AppError("Internal server error")
         _client = OpenAI(api_key=settings.openai_api_key)
     return _client
 
@@ -37,21 +38,16 @@ def extract_json(content: str) -> dict:
         }
 
 
-def openai_wrapper(
+def openai_call(
     user_prompt: str,
     system_prompt: str = "You are a JSON API. Return only valid JSON with no extra text.",
     model: str = DEFAULT_MODEL,
-) -> dict:
+) -> tuple[dict, dict, str]:
     """
-    Call OpenAI Chat Completions API and return a parsed JSON dict.
+    Low-level OpenAI call — returns (parsed_dict, usage_dict, raw_response_text).
 
-    Args:
-        user_prompt:   The user-facing instruction / content.
-        system_prompt: System-level behaviour instructions.
-        model:         Model to use (defaults to DEFAULT_MODEL).
-
-    Returns:
-        Parsed JSON dict, or an error dict if parsing fails.
+    usage_dict keys: prompt_tokens, completion_tokens, total_tokens (int | None each).
+    Use this when you need token counts (e.g. the LLM tracker).
 
     Raises:
         BadRequestError 400 if prompt is empty.
@@ -70,10 +66,29 @@ def openai_wrapper(
                 {"role": "user", "content": user_prompt},
             ],
         )
-        content = response.choices[0].message.content
-        return extract_json(content)
+        raw_text = response.choices[0].message.content or ""
+        usage = response.usage
+        usage_dict = {
+            "prompt_tokens": usage.prompt_tokens if usage else None,
+            "completion_tokens": usage.completion_tokens if usage else None,
+            "total_tokens": usage.total_tokens if usage else None,
+        }
+        return extract_json(raw_text), usage_dict, raw_text
     except (BadRequestError, AppError):
         raise
     except Exception as e:
         logger.exception("OpenAI API error")
         raise AppError(str(e))
+
+
+def openai_wrapper(
+    user_prompt: str,
+    system_prompt: str = "You are a JSON API. Return only valid JSON with no extra text.",
+    model: str = DEFAULT_MODEL,
+) -> dict:
+    """
+    Convenience wrapper — returns only the parsed JSON dict.
+    Delegates to openai_call(); use openai_call() directly when token usage is needed.
+    """
+    result, _, _ = openai_call(user_prompt, system_prompt, model)
+    return result

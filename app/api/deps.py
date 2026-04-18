@@ -43,6 +43,38 @@ def get_current_active_user(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> User | None:
+    """
+    Requires a valid bearer token (401 if missing or invalid).
+    Returns the User for real tokens; returns None for demo tokens (sub='demo').
+    Use on AI routes that need auth but also want to track which user called them.
+    """
+    if not credentials:
+        raise UnauthorizedError("Authorization header missing.")
+
+    try:
+        payload = decode_token(credentials.credentials)
+    except JWTError:
+        raise UnauthorizedError("Token is invalid or expired.")
+
+    if payload.get("type") != "access":
+        raise UnauthorizedError("Token is not an access token.")
+
+    # Prateek: Demo tokens carry sub='demo' — no DB user exists for them.
+    if payload.get("sub") == "demo":
+        return None
+
+    user = db.query(User).filter(User.id == int(payload["sub"])).first()
+    if not user:
+        raise UnauthorizedError("User not found.")
+    if not user.is_active:
+        raise ForbiddenError("Account is disabled.")
+    return user
+
+
 def require_valid_token(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> dict:

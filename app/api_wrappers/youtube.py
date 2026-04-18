@@ -16,7 +16,8 @@ from app.core.exceptions import AppError, BadRequestError
 def _get_service():
     """Build and return an authenticated YouTube API service client."""
     if not settings.youtube_api_key:
-        raise AppError("YOUTUBE_API_KEY is not configured")
+        logger.error("YOUTUBE_API_KEY is not configured — set it in .env")
+        raise AppError("Internal server error")
     return build("youtube", "v3", developerKey=settings.youtube_api_key)
 
 
