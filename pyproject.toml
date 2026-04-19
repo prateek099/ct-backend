@@ -24,6 +24,7 @@ slowapi = "^0.1.9"
 # AI / external APIs
 openai = "^2.0"
 google-api-python-client = ">=2.0.0"
+bcrypt = "^5.0.0"
 
 [tool.poetry.group.dev.dependencies]
 debugpy = "^1.8"
