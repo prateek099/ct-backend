@@ -56,12 +56,43 @@ _OPTIONAL_VARS: list[tuple[str, str]] = [
 _INSECURE_JWT = "change-me-in-production-use-openssl-rand-hex-32"
 
 
+def _mask_db_url(url: str) -> str:
+    # Prateek: Hide the password in DATABASE_URL so it's safe to log.
+    try:
+        from urllib.parse import urlparse, urlunparse
+        parsed = urlparse(url)
+        if parsed.password:
+            masked = parsed._replace(netloc=parsed.netloc.replace(parsed.password, "****"))
+            return urlunparse(masked)
+    except Exception:
+        pass
+    return url
+
+
 def check_optional_settings() -> None:
     # Prateek: Log .env load status first so operators know the source of config values.
     if _env_loaded:
         logger.info("Environment loaded from {}", _ENV_FILE)
     else:
         logger.warning(".env file not found at {} — relying on system environment variables", _ENV_FILE)
+
+    logger.info(
+        "Config | app={} env={} debug={} log_level={} log_format={} "
+        "db={} cors={} jwt_algo={} access_ttl={}min refresh_ttl={}d "
+        "openai={} youtube={}",
+        settings.app_name,
+        settings.environment,
+        settings.debug,
+        settings.log_level,
+        settings.log_format,
+        _mask_db_url(settings.database_url),
+        settings.cors_origins,
+        settings.jwt_algorithm,
+        settings.jwt_access_token_expire_minutes,
+        settings.jwt_refresh_token_expire_days,
+        "set" if settings.openai_api_key else "MISSING",
+        "set" if settings.youtube_api_key else "missing",
+    )
 
     for attr, label in _OPTIONAL_VARS:
         if not getattr(settings, attr):
