@@ -61,3 +61,33 @@ def auth_headers(client, registered_user):
     assert res.status_code == 200
     token = res.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def admin_auth_headers(client):
+    """Register an admin user and return their Authorization headers."""
+    # Prateek: Register via the public endpoint, then flip is_admin directly in the DB
+    # since there's no admin-promote endpoint yet (and we don't want a chicken-and-egg).
+    res = client.post("/api/v1/auth/register", json={
+        "name": "Admin User",
+        "email": "admin@example.com",
+        "password": "adminpass",
+    })
+    assert res.status_code == 201
+
+    from app.models.user import User
+    db = TestingSession()
+    try:
+        user = db.query(User).filter(User.email == "admin@example.com").one()
+        user.is_admin = True
+        db.commit()
+    finally:
+        db.close()
+
+    res = client.post("/api/v1/auth/login", json={
+        "email": "admin@example.com",
+        "password": "adminpass",
+    })
+    assert res.status_code == 200
+    token = res.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}

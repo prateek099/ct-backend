@@ -10,7 +10,6 @@ from slowapi.util import get_remote_address
 from app.api.routes import auth, users, login, video_idea_gen, script_generator, title_suggestor, seo_description
 from app.api.routes import youtube as yt
 from app.core.config import settings, check_optional_settings
-from app.core.database import Base, engine
 import app.models  # noqa: F401 — registers all models with Base.metadata
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import setup_logging
@@ -29,7 +28,9 @@ setup_logging()
 check_optional_settings()
 
 # ── DB bootstrap ─────────────────────────────────────────────────────────────
-Base.metadata.create_all(bind=engine)
+# Prateek: Schema is managed by Alembic — run `alembic upgrade head` before starting
+# the server (handled by the Docker entrypoint). Tests still use create_all() via
+# tests/conftest.py.
 
 # ── Rate limiter ─────────────────────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])

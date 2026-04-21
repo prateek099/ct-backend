@@ -27,11 +27,16 @@ def test_get_user_not_found(client, auth_headers):
     assert res.status_code == 404
 
 
-def test_list_users(client, auth_headers):
+def test_list_users_requires_admin(client, auth_headers):
+    res = client.get("/api/v1/users/", headers=auth_headers)
+    assert res.status_code == 403
+
+
+def test_list_users_as_admin(client, admin_auth_headers):
     client.post("/api/v1/users/", json={
         "name": "Carol", "email": "carol@example.com", "password": "pass"
-    }, headers=auth_headers)
-    res = client.get("/api/v1/users/", headers=auth_headers)
+    }, headers=admin_auth_headers)
+    res = client.get("/api/v1/users/", headers=admin_auth_headers)
     assert res.status_code == 200
     assert len(res.json()) >= 1
 
