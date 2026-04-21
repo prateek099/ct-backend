@@ -233,13 +233,20 @@ GRANT ALL PRIVILEGES ON DATABASE ct_db TO ct_user;
 DATABASE_URL=postgresql+psycopg://ct_user:yourpassword@localhost:5432/ct_db
 ```
 
-**3 — Apply migrations (if any exist)**
+**3 — Apply migrations**
 
 ```bash
 poetry run alembic upgrade head
 ```
 
-Tables are also created automatically on startup via `Base.metadata.create_all`.
+Alembic is the source of truth for schema. In Docker the entrypoint runs `alembic upgrade head` before uvicorn boots. Tests still build the schema via `Base.metadata.create_all` in `conftest.py` for speed.
+
+To create a new migration:
+
+```bash
+poetry run alembic revision -m "short description"
+# Prateek: prefer explicit upgrade/downgrade over autogenerate until the model layer stabilises
+```
 
 ---
 
@@ -389,7 +396,7 @@ ct-backend/
 │   │   ├── timing.py            # X-Process-Time header
 │   │   └── logging.py           # per-request structured log
 │   ├── models/
-│   │   ├── __init__.py          # imports User + LLMUsage so Base.metadata.create_all sees both
+│   │   ├── __init__.py          # imports User + LLMUsage so Alembic's env.py sees all models
 │   │   ├── user.py              # SQLAlchemy User model
 │   │   └── llm_usage.py         # SQLAlchemy LLMUsage model (one row per OpenAI call)
 │   ├── prompts/                 # Extracted prompt templates — diffable, testable, redeploy-free
@@ -547,7 +554,7 @@ The frontend sends the Bearer token automatically via the Axios interceptor in `
 
 ## Database schema
 
-Tables are created automatically on startup via `Base.metadata.create_all`. No manual migration is needed for local dev.
+Schema is managed by **Alembic**. Docker runs `alembic upgrade head` on container start; locally, run it manually: `poetry run alembic upgrade head`.
 
 ### `users`
 
@@ -558,6 +565,7 @@ Tables are created automatically on startup via `Base.metadata.create_all`. No m
 | `email` | VARCHAR(255) | Unique, indexed |
 | `hashed_password` | VARCHAR(255) | bcrypt hash |
 | `is_active` | BOOLEAN | Default `true` |
+| `is_admin` | BOOLEAN | Default `false` — gates admin-only routes (e.g. `GET /users/`) |
 | `created_at` | DATETIME | Server default = now() |
 
 ### `llm_usage`

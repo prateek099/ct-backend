@@ -12,8 +12,8 @@ COPY pyproject.toml poetry.lock* ./
 FROM base AS development
 RUN poetry install --with dev
 COPY . .
-CMD ["poetry", "run", "uvicorn", "app.main:app", \
-     "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Prateek: Run migrations before uvicorn so new tables/columns exist on startup.
+CMD ["sh", "-c", "poetry run alembic upgrade head && poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
 
 # ── Builder (prod deps only) ──────────────────────────────────────────────────
 FROM base AS builder
@@ -30,10 +30,13 @@ COPY --from=builder /app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
+COPY alembic/ ./alembic/
+COPY alembic.ini ./
 USER appuser
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Prateek: Run migrations before uvicorn so new tables/columns exist on startup.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
