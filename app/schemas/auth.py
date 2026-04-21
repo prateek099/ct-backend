@@ -1,3 +1,4 @@
+"""Pydantic schemas for /auth routes — Register, Login, Token payloads."""
 from pydantic import BaseModel, EmailStr
 
 

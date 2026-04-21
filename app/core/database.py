@@ -1,3 +1,4 @@
+"""SQLAlchemy engine, Base, and get_db session dependency."""
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 

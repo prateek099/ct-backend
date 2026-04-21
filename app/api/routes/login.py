@@ -1,3 +1,4 @@
+"""Route: POST /login — demo login that checks base64 creds against settings."""
 import base64
 
 from fastapi import APIRouter, Depends
@@ -6,6 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core import messages
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.exceptions import AppError, UnauthorizedError
 from app.core.security import create_access_token, create_refresh_token, verify_password
@@ -13,11 +15,6 @@ from app.schemas.auth import TokenResponse
 from app.services.user_service import get_user_by_email
 
 router = APIRouter()
-
-# Prateek: Hardcoded demo credentials — base64-encoded on the wire, for testing only.
-# All other users are authenticated against the database.
-HARDCODED_USERNAME = "u"
-HARDCODED_PASSWORD = "p"
 
 
 class WorkflowLoginRequest(BaseModel):
@@ -65,7 +62,7 @@ async def workflow_login(
             raise UnauthorizedError(messages.INVALID_CREDENTIALS)
 
         # Prateek: Hardcoded demo credentials take priority — no DB hit needed.
-        if decoded_username == HARDCODED_USERNAME and decoded_password == HARDCODED_PASSWORD:
+        if decoded_username == settings.demo_username and decoded_password == settings.demo_password:
             logger.info("Demo login successful")
             return TokenResponse(
                 name="Creator",

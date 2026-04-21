@@ -1,3 +1,4 @@
+"""Middleware that measures request duration and exposes it as X-Process-Time."""
 import time
 
 from starlette.middleware.base import BaseHTTPMiddleware

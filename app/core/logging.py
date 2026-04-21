@@ -1,3 +1,4 @@
+"""Loguru setup with stdlib intercept — pretty locally, JSON in production."""
 import json
 import logging
 import sys

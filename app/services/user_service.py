@@ -1,3 +1,4 @@
+"""User CRUD service — raises AppError subclasses, never HTTPException."""
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ConflictError, NotFoundError

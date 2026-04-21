@@ -1,3 +1,4 @@
+"""Auth service — register, login, refresh_tokens. Raises AppError subclasses."""
 from sqlalchemy.orm import Session
 
 from app.core import messages

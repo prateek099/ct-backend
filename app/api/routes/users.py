@@ -1,3 +1,4 @@
+"""Protected user CRUD routes — list / create / update / delete."""
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 

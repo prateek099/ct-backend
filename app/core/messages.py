@@ -1,3 +1,4 @@
+"""Single source of truth for user-facing API response messages."""
 # Prateek: Single source of truth for all user-facing API response messages.
 # All routes and services must import from here — never hardcode strings inline.
 

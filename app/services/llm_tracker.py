@@ -1,3 +1,4 @@
+"""Wraps every OpenAI call, persists an LLMUsage row, and returns parsed JSON."""
 import time
 
 from loguru import logger

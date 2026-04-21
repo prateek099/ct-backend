@@ -1,3 +1,4 @@
+"""FastAPI dependencies — get_current_user (required) and get_optional_user (soft auth)."""
 from fastapi import Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
@@ -35,11 +36,6 @@ def get_current_user(
         raise UnauthorizedError("User not found.")
     if not user.is_active:
         raise ForbiddenError("Account is disabled.")
-    return user
-
-
-def get_current_active_user(user: User = Depends(get_current_user)) -> User:
-    """Alias — ensures user is active (already checked in get_current_user)."""
     return user
 
 

@@ -1,6 +1,6 @@
 # ct-backend
 
-FastAPI backend for Creator Tools — JWT auth, SQLAlchemy 2.0, structured logging, rate limiting.
+FastAPI backend for Creator Tools — JWT auth, SQLAlchemy 2.0, OpenAI integration, LLM usage tracking, structured logging, rate limiting.
 
 | | |
 |---|---|
@@ -347,8 +347,14 @@ curl http://localhost:8000/health
 | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Access token lifetime |
 | `JWT_REFRESH_TOKEN_EXPIRE_DAYS` | `7` | Refresh token lifetime |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed frontend origins |
+| `OPENAI_API_KEY` | _(empty)_ | Required for all AI generation endpoints — server warns at startup if missing |
+| `YOUTUBE_API_KEY` | _(empty)_ | Required for YouTube channel context endpoints — server warns at startup if missing |
+| `DEMO_USERNAME` | `u` | Username for `/workflow/login` demo credentials. **Override in production.** |
+| `DEMO_PASSWORD` | `p` | Password for `/workflow/login` demo credentials. **Override in production.** |
 | `LOG_LEVEL` | `INFO` | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR` |
 | `LOG_FORMAT` | `json` | `pretty` (coloured, local) \| `json` (structured, prod) |
+
+All variables are loaded from `.env` at startup via `python-dotenv`. The server logs a warning for any missing optional variable (`OPENAI_API_KEY`, `YOUTUBE_API_KEY`) and for an insecure `JWT_SECRET_KEY`.
 
 ---
 
@@ -357,34 +363,54 @@ curl http://localhost:8000/health
 ```
 ct-backend/
 ├── app/
-│   ├── main.py                  # App factory — middleware, routes, handlers
+│   ├── main.py                  # App factory — middleware, routes, handlers, model registration
 │   ├── api/
-│   │   ├── deps.py              # get_current_user JWT dependency
+│   │   ├── deps.py              # get_current_user, get_optional_user JWT dependencies
 │   │   └── routes/
 │   │       ├── auth.py          # POST /auth/register /login /refresh  GET /auth/me
-│   │       └── users.py         # CRUD /users/* (all protected)
+│   │       ├── users.py         # CRUD /users/* (all protected)
+│   │       ├── login.py         # POST /workflow/login — demo login (creds via settings)
+│   │       ├── youtube.py       # YouTube channel / video lookup endpoints
+│   │       ├── video_idea_gen.py    # POST /api/v1/video-idea-gen
+│   │       ├── script_generator.py  # POST /api/v1/script-generator
+│   │       ├── title_suggestor.py   # POST /api/v1/title-suggestor
+│   │       └── seo_description.py   # POST /api/v1/seo-description
+│   ├── api_wrappers/
+│   │   └── open_ai.py           # Thin OpenAI client wrapper — returns parsed JSON
 │   ├── core/
-│   │   ├── config.py            # pydantic-settings — reads .env
+│   │   ├── config.py            # pydantic-settings — loads .env + startup warnings
 │   │   ├── database.py          # SQLAlchemy engine, session, Base
 │   │   ├── exceptions.py        # AppError subclasses + global handlers
 │   │   ├── logging.py           # loguru setup, stdlib interception
+│   │   ├── messages.py          # User-facing API response strings
 │   │   └── security.py          # bcrypt hashing, JWT encode/decode
 │   ├── middleware/
 │   │   ├── request_id.py        # X-Request-ID on every request
 │   │   ├── timing.py            # X-Process-Time header
 │   │   └── logging.py           # per-request structured log
 │   ├── models/
-│   │   └── user.py              # SQLAlchemy User model
+│   │   ├── __init__.py          # imports User + LLMUsage so Base.metadata.create_all sees both
+│   │   ├── user.py              # SQLAlchemy User model
+│   │   └── llm_usage.py         # SQLAlchemy LLMUsage model (one row per OpenAI call)
+│   ├── prompts/                 # Extracted prompt templates — diffable, testable, redeploy-free
+│   │   ├── ideas.py             # build(topic, channel_context) → (system, user) prompts
+│   │   ├── script.py            # build(req) for /script-generator — WPM, flavors, target length
+│   │   ├── title.py             # build(req) for /title-suggestor — 10 CTR styles
+│   │   └── seo.py               # build(req) for /seo-description — limits + hashtag count
 │   ├── schemas/
 │   │   ├── auth.py              # LoginRequest, RegisterRequest, TokenResponse
-│   │   └── user.py              # UserCreate, UserResponse
+│   │   ├── user.py              # UserCreate, UserResponse
+│   │   └── ai.py                # Unified ChannelContext shared by all 4 AI routes
 │   └── services/
 │       ├── auth_service.py      # register, login, refresh_tokens
+│       ├── llm_tracker.py       # track_openai_call() — times call, writes LLMUsage row
 │       └── user_service.py      # CRUD — raises AppError subclasses
 ├── tests/
 │   ├── conftest.py              # Fixtures: client, registered_user, auth_headers
-│   ├── test_auth.py
-│   └── test_users.py
+│   ├── test_auth.py             # /auth/* flows
+│   ├── test_users.py            # /users/* CRUD
+│   ├── test_deps.py             # JWT dependency — missing / bad / valid token
+│   └── test_ai_routes.py        # /video-idea-gen, /script-generator, /title-suggestor, /seo-description (mocks OpenAI)
 ├── .env.example                 # Environment template — copy to .env
 ├── Dockerfile                   # Multi-stage: base / development / production
 ├── poetry.lock                  # Pinned dependency tree — commit this file
@@ -436,19 +462,125 @@ poetry run alembic downgrade -1
 
 ## API endpoints
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/health` | — | Health check |
-| `POST` | `/api/v1/auth/register` | — | Register a new user |
-| `POST` | `/api/v1/auth/login` | — | Login → access + refresh tokens |
-| `POST` | `/api/v1/auth/refresh` | — | Exchange refresh token for new pair |
-| `GET` | `/api/v1/auth/me` | Bearer | Current user profile |
-| `GET` | `/api/v1/users/` | Bearer | List all users |
-| `POST` | `/api/v1/users/` | Bearer | Create a user |
-| `GET` | `/api/v1/users/{id}` | Bearer | Get user by ID |
-| `DELETE` | `/api/v1/users/{id}` | Bearer | Delete user by ID |
+### Auth (public)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/health` | Health check |
+| `POST` | `/api/v1/auth/register` | Register a new user |
+| `POST` | `/api/v1/auth/login` | Login → `{ name, access_token, refresh_token }` |
+| `POST` | `/api/v1/auth/refresh` | Exchange refresh token for a new token pair |
+| `POST` | `/api/v1/workflow/login` | Demo / workflow login (no registration required) |
+
+### Auth (protected — Bearer token required)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/auth/me` | Current user profile |
+| `GET` | `/api/v1/users/` | List all users |
+| `POST` | `/api/v1/users/` | Create a user |
+| `GET` | `/api/v1/users/{id}` | Get user by ID |
+| `DELETE` | `/api/v1/users/{id}` | Delete user by ID |
+
+### AI Tools (Bearer token required)
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/v1/ai/video-idea-gen` | Generate 10 video ideas from a topic / niche |
+| `POST` | `/api/v1/ai/script-generator` | Generate a full section-by-section video script |
+| `POST` | `/api/v1/ai/title-suggestor` | Generate 10 title variations across CTR styles |
+| `POST` | `/api/v1/ai/seo-description` | Generate YouTube description, hashtags, and tags |
+
+Every AI call is recorded to the `llm_usage` table (see Database Schema below).
 
 Full interactive docs available at `/docs` when `DEBUG=true`.
+
+---
+
+## Authentication — sending the Bearer token
+
+All protected endpoints require an `Authorization: Bearer <token>` header.
+
+**Obtain a token**
+
+```bash
+# Register
+curl -X POST http://localhost:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice","email":"alice@example.com","password":"secret"}'
+
+# Login — response includes access_token and refresh_token
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"alice@example.com","password":"secret"}'
+```
+
+**Use the token**
+
+```bash
+TOKEN="<your_access_token>"
+
+# Call an AI endpoint
+curl -X POST http://localhost:8000/api/v1/ai/video-idea-gen \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"Fitness tips for busy professionals"}'
+```
+
+**Python example**
+
+```python
+import requests
+
+token = "<your_access_token>"
+resp = requests.post(
+    "http://localhost:8000/api/v1/ai/video-idea-gen",
+    headers={"Authorization": f"Bearer {token}"},
+    json={"prompt": "Fitness tips for busy professionals"},
+)
+print(resp.json())
+```
+
+The frontend sends the Bearer token automatically via the Axios interceptor in `src/api/client.ts` — no manual header needed in the UI.
+
+---
+
+## Database schema
+
+Tables are created automatically on startup via `Base.metadata.create_all`. No manual migration is needed for local dev.
+
+### `users`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | INTEGER PK | Auto-increment |
+| `name` | VARCHAR(100) | Required |
+| `email` | VARCHAR(255) | Unique, indexed |
+| `hashed_password` | VARCHAR(255) | bcrypt hash |
+| `is_active` | BOOLEAN | Default `true` |
+| `created_at` | DATETIME | Server default = now() |
+
+### `llm_usage`
+
+One row is written for every OpenAI API call regardless of success or failure.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | INTEGER PK | Auto-increment |
+| `user_id` | INTEGER FK | `users.id`, nullable — null for demo/unauthenticated |
+| `username` | VARCHAR(100) | User's name, or `"SYSTEM_USAGE"` for demo calls |
+| `endpoint` | VARCHAR(100) | Route name: `video_idea_gen`, `script_generator`, etc. |
+| `model` | VARCHAR(100) | e.g. `gpt-4o-mini` |
+| `system_prompt` | TEXT | Full system prompt sent to OpenAI |
+| `user_prompt` | TEXT | Full user prompt sent to OpenAI |
+| `response_text` | TEXT | Raw response string from OpenAI (before JSON parse) |
+| `prompt_tokens` | INTEGER | Nullable — from `response.usage` |
+| `completion_tokens` | INTEGER | Nullable |
+| `total_tokens` | INTEGER | Nullable |
+| `duration_ms` | INTEGER | Wall-clock ms from call start to response |
+| `status` | VARCHAR(20) | `"success"` or `"error"` |
+| `error_message` | TEXT | Nullable — set on exception |
+| `created_at` | DATETIME | Server default = now(), indexed |
 
 ---
 

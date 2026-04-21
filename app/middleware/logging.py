@@ -1,3 +1,4 @@
+"""Per-request structured logging middleware (method, path, status, duration)."""
 import time
 
 from loguru import logger

@@ -1,3 +1,4 @@
+"""Pydantic schemas for user CRUD responses."""
 from pydantic import BaseModel
 
 

@@ -1,3 +1,4 @@
+"""FastAPI app factory — wires middleware, routes, logging, and exception handlers."""
 import os
 
 from fastapi import FastAPI, Request

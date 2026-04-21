@@ -1,3 +1,4 @@
+"""AppError hierarchy and global FastAPI exception handlers."""
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse

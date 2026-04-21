@@ -1,3 +1,4 @@
+"""Thin OpenAI client wrapper — call_openai() returns parsed JSON from chat completions."""
 import json
 
 from openai import OpenAI

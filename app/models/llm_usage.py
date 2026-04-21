@@ -1,3 +1,4 @@
+"""LLMUsage ORM model — one row per OpenAI call (tokens, cost, prompt, endpoint)."""
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func

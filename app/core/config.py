@@ -1,3 +1,4 @@
+"""Application settings loaded from env (pydantic-settings)."""
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -31,6 +32,11 @@ class Settings(BaseSettings):
     # External APIs
     openai_api_key: str = ""
     youtube_api_key: str = ""
+
+    # Prateek: Demo credentials for the /login endpoint — base64-decoded at the wire.
+    # Override via DEMO_USERNAME / DEMO_PASSWORD env vars in production.
+    demo_username: str = "u"
+    demo_password: str = "p"
 
     # Logging
     log_level: str = "INFO"

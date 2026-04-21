@@ -1,3 +1,4 @@
+"""Routes: YouTube channel/video lookup endpoints."""
 from fastapi import APIRouter, Depends
 from loguru import logger
 from pydantic import BaseModel, Field
