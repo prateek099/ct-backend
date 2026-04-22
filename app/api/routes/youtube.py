@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from typing import List
 
 from app.api.deps import require_valid_token
-from app.api_wrappers.youtube import fetch_channel_data
+from app.api_wrappers.youtube import fetch_channel_data, fetch_video_thumbnails
 from app.core.exceptions import AppError, BadRequestError
 
 router = APIRouter()
@@ -71,3 +71,52 @@ def get_channel_data(
     logger.info("YouTube channel fetch", url=request.url[:80])
     data = fetch_channel_data(request.url)
     return ChannelDataResponse(**data)
+
+
+# ── Thumbnail downloader ──────────────────────────────────────────────────────
+
+class ThumbnailRequest(BaseModel):
+    url: str = Field(
+        ...,
+        description="YouTube video URL, shorts URL, youtu.be short link, or 11-char video id",
+        examples=["https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
+    )
+
+
+class ThumbnailSet(BaseModel):
+    default: str
+    medium: str
+    high: str
+    standard: str
+    maxres: str
+
+
+class ThumbnailResponse(BaseModel):
+    video_id: str
+    title: str
+    channel_name: str
+    thumbnails: ThumbnailSet
+
+
+@router.post(
+    "/yt/thumbnails",
+    tags=["youtube"],
+    response_model=ThumbnailResponse,
+    summary="Fetch YouTube thumbnail URLs for a video",
+    description=(
+        "Given any YouTube video URL (or 11-char video id), returns the five public "
+        "thumbnail variants (default/medium/high/standard/maxres) plus title and channel "
+        "name where available. Thumbnail URLs resolve even if the API key is missing."
+    ),
+    responses={400: {"description": "URL is not a parseable video URL"}},
+)
+def get_thumbnails(
+    request: ThumbnailRequest,
+    _token: dict = Depends(require_valid_token),
+) -> ThumbnailResponse:
+    if not request.url.strip():
+        raise BadRequestError("URL cannot be empty")
+
+    logger.info("YouTube thumbnails fetch", url=request.url[:80])
+    data = fetch_video_thumbnails(request.url)
+    return ThumbnailResponse(**data)

@@ -213,3 +213,65 @@ def fetch_channel_data(url: str) -> dict:
     except Exception as e:
         logger.exception("YouTube API error", url=url[:80])
         raise AppError(f"YouTube API error: {e}")
+
+
+def _extract_video_id(url: str) -> str:
+    """Extract a YouTube video id from a URL or raw id."""
+    url = url.strip()
+    # Prateek: Raw 11-char video id passed directly.
+    if re.match(r"^[\w-]{11}$", url):
+        return url
+    identifier_type, value = parse_youtube_url(url)
+    if identifier_type != "video_id":
+        raise BadRequestError(
+            "URL must point to a YouTube video (watch?v=..., youtu.be/..., or /shorts/...)."
+        )
+    return value
+
+
+def fetch_video_thumbnails(url: str) -> dict:
+    """
+    Build the set of public YouTube thumbnail URLs for a video, plus light metadata.
+
+    Returns:
+        {
+            video_id, title, channel_name,
+            thumbnails: {default, medium, high, standard, maxres},
+        }
+
+    Missing metadata is returned as empty strings rather than raising — the
+    thumbnail URLs themselves always resolve for public videos.
+    """
+    video_id = _extract_video_id(url)
+
+    # Prateek: Public thumbnail URL scheme — no API call needed for these.
+    thumbnails = {
+        "default": f"https://i.ytimg.com/vi/{video_id}/default.jpg",
+        "medium": f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg",
+        "high": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+        "standard": f"https://i.ytimg.com/vi/{video_id}/sddefault.jpg",
+        "maxres": f"https://i.ytimg.com/vi/{video_id}/maxresdefault.jpg",
+    }
+
+    title = ""
+    channel_name = ""
+    try:
+        service = _get_service()
+        resp = service.videos().list(part="snippet", id=video_id).execute()
+        items = resp.get("items", [])
+        if items:
+            snip = items[0]["snippet"]
+            title = snip.get("title", "")
+            channel_name = snip.get("channelTitle", "")
+    except AppError:
+        # Prateek: No API key configured — still return the URLs; metadata is optional.
+        logger.warning("Thumbnail metadata skipped — YOUTUBE_API_KEY missing")
+    except Exception:
+        logger.exception("Thumbnail metadata fetch failed", video_id=video_id)
+
+    return {
+        "video_id": video_id,
+        "title": title,
+        "channel_name": channel_name,
+        "thumbnails": thumbnails,
+    }
