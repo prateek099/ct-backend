@@ -1,5 +1,5 @@
 """Prompt templates for the /seo-description endpoint."""
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.api.routes.seo_description import SeoRequest
@@ -71,7 +71,11 @@ CHANNEL CONTEXT:
 """
 
 
-def build(req: "SeoRequest") -> tuple[str, str]:
+def build(
+    req: "SeoRequest",
+    system_override: Optional[str] = None,
+    template_override: Optional[str] = None,
+) -> tuple[str, str]:
     """Return (system_prompt, user_prompt) for the SEO description call."""
     script_outline = req.script_outline or "Full script not provided — infer from title and topic."
 
@@ -89,7 +93,8 @@ def build(req: "SeoRequest") -> tuple[str, str]:
             titles=titles,
         )
 
-    user_prompt = USER_PROMPT_TEMPLATE.format(
+    template = template_override or USER_PROMPT_TEMPLATE
+    user_prompt = template.format(
         title=req.title,
         topic=req.topic,
         script_outline=script_outline[:500],
@@ -99,4 +104,4 @@ def build(req: "SeoRequest") -> tuple[str, str]:
         max_desc_words=MAX_DESC_WORDS,
         max_tags_chars=MAX_TAGS_CHARS,
     )
-    return SYSTEM_PROMPT, user_prompt
+    return system_override or SYSTEM_PROMPT, user_prompt

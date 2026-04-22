@@ -45,8 +45,17 @@ Rules based on channel context:
 """
 
 
-def build(topic: str, channel_context: Optional[ChannelContext]) -> tuple[str, str]:
-    """Return (system_prompt, user_prompt) for the idea-gen call."""
+def build(
+    topic: str,
+    channel_context: Optional[ChannelContext],
+    system_override: Optional[str] = None,
+    template_override: Optional[str] = None,
+) -> tuple[str, str]:
+    """Return (system_prompt, user_prompt) for the idea-gen call.
+
+    Admin overrides (from the DB) can replace either constant. If the template
+    is overridden it must keep the {channel_block} and {topic} placeholders.
+    """
     channel_block = ""
     if channel_context:
         titles = "\n".join(
@@ -61,8 +70,6 @@ def build(topic: str, channel_context: Optional[ChannelContext]) -> tuple[str, s
             titles=titles,
         )
 
-    user_prompt = USER_PROMPT_TEMPLATE.format(
-        channel_block=channel_block,
-        topic=topic,
-    )
-    return SYSTEM_PROMPT, user_prompt
+    template = template_override or USER_PROMPT_TEMPLATE
+    user_prompt = template.format(channel_block=channel_block, topic=topic)
+    return system_override or SYSTEM_PROMPT, user_prompt

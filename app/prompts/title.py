@@ -1,6 +1,6 @@
 """Prompt templates for the /title-suggestor endpoint."""
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.api.routes.title_suggestor import TitleRequest
@@ -70,7 +70,11 @@ CHANNEL CONTEXT:
 """
 
 
-def build(req: "TitleRequest") -> tuple[str, str]:
+def build(
+    req: "TitleRequest",
+    system_override: Optional[str] = None,
+    template_override: Optional[str] = None,
+) -> tuple[str, str]:
     """Return (system_prompt, user_prompt) for the title-gen call."""
     year = datetime.now().year
 
@@ -91,7 +95,8 @@ def build(req: "TitleRequest") -> tuple[str, str]:
             titles=titles,
         )
 
-    user_prompt = USER_PROMPT_TEMPLATE.format(
+    template = template_override or USER_PROMPT_TEMPLATE
+    user_prompt = template.format(
         topic=req.topic,
         hook=req.hook,
         angle=req.angle,
@@ -100,4 +105,4 @@ def build(req: "TitleRequest") -> tuple[str, str]:
         channel_block=channel_block,
         year=year,
     )
-    return SYSTEM_PROMPT, user_prompt
+    return system_override or SYSTEM_PROMPT, user_prompt
