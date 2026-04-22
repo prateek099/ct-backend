@@ -3,4 +3,5 @@
 from app.models.user import User  # noqa: F401
 from app.models.project import Project  # noqa: F401
 from app.models.prompt_override import PromptOverride, PromptOverrideHistory  # noqa: F401
+from app.models.saved_idea import SavedIdea  # noqa: F401
 from app.models.llm_usage import LLMUsage  # noqa: F401
