@@ -35,7 +35,17 @@ def get_current_user(
     if payload.get("type") != "access":
         raise UnauthorizedError("Token is not an access token.")
 
-    user = db.query(User).filter(User.id == int(payload["sub"])).first()
+    # Prateek: Demo tokens carry sub='demo' and map to no DB row. Owned-resource
+    # routes require a real account — reject cleanly instead of crashing in int().
+    sub = payload.get("sub")
+    if sub == "demo":
+        raise UnauthorizedError("Demo users cannot access this resource — sign in with a real account.")
+    try:
+        user_id = int(sub)
+    except (TypeError, ValueError):
+        raise UnauthorizedError("Token subject is not a valid user id.")
+
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise UnauthorizedError("User not found.")
     if not user.is_active:
@@ -64,10 +74,15 @@ def get_optional_user(
         raise UnauthorizedError("Token is not an access token.")
 
     # Prateek: Demo tokens carry sub='demo' — no DB user exists for them.
-    if payload.get("sub") == "demo":
+    sub = payload.get("sub")
+    if sub == "demo":
         return None
+    try:
+        user_id = int(sub)
+    except (TypeError, ValueError):
+        raise UnauthorizedError("Token subject is not a valid user id.")
 
-    user = db.query(User).filter(User.id == int(payload["sub"])).first()
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise UnauthorizedError("User not found.")
     if not user.is_active:
