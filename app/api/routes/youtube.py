@@ -2,11 +2,12 @@
 from fastapi import APIRouter, Depends
 from loguru import logger
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 
 from app.api.deps import require_valid_token
 from app.api_wrappers.youtube import fetch_channel_data, fetch_video_thumbnails
 from app.core.exceptions import AppError, BadRequestError
+from app.services import subtitle_service
 
 router = APIRouter()
 
@@ -120,3 +121,64 @@ def get_thumbnails(
     logger.info("YouTube thumbnails fetch", url=request.url[:80])
     data = fetch_video_thumbnails(request.url)
     return ThumbnailResponse(**data)
+
+
+# ── Subtitles downloader ──────────────────────────────────────────────────────
+
+class SubtitlesRequest(BaseModel):
+    url: str = Field(..., description="YouTube video URL or 11-char video id")
+    language: Optional[str] = Field(
+        None,
+        description="BCP-47 language code to prefer (e.g. 'en', 'de'). Defaults to 'en'.",
+    )
+
+
+class SubtitleEntryModel(BaseModel):
+    start: float
+    duration: float
+    text: str
+
+
+class SubtitlesResponse(BaseModel):
+    video_id: str
+    language: str
+    entries: List[SubtitleEntryModel]
+    srt: str
+    vtt: str
+
+
+@router.post(
+    "/yt/subtitles",
+    tags=["youtube"],
+    response_model=SubtitlesResponse,
+    summary="Download YouTube video subtitles as SRT + VTT",
+    description=(
+        "Fetches the transcript for a video via the unofficial YouTube transcript "
+        "endpoint (via youtube-transcript-api). Returns entries plus SRT and VTT "
+        "strings. 502 when YouTube's endpoint is blocked; 400 when the video URL "
+        "is unparseable or private."
+    ),
+    responses={
+        400: {"description": "URL cannot be parsed or video is unavailable"},
+        502: {"description": "YouTube subtitles endpoint rejected the request"},
+    },
+)
+def get_subtitles(
+    request: SubtitlesRequest,
+    _token: dict = Depends(require_valid_token),
+) -> SubtitlesResponse:
+    if not request.url.strip():
+        raise BadRequestError("URL cannot be empty")
+
+    logger.info("YouTube subtitles fetch", url=request.url[:80], lang=request.language)
+    result = subtitle_service.fetch_subtitles(request.url, request.language)
+    return SubtitlesResponse(
+        video_id=result.video_id,
+        language=result.language,
+        entries=[
+            SubtitleEntryModel(start=e.start, duration=e.duration, text=e.text)
+            for e in result.entries
+        ],
+        srt=result.srt,
+        vtt=result.vtt,
+    )
