@@ -82,11 +82,9 @@ app.include_router(yt.router, prefix="/api/v1")
 
 @app.on_event("startup")
 async def _seed_demo_admins_on_startup():
-    # Prateek: Idempotent seed — ensures admin1..admin5@example.com exist so
-    # the login page always has working demo accounts. Skipped in production
-    # so we never create demo admins against a real DB.
-    if settings.environment == "production":
-        return
+    # Prateek: Idempotent seed — ensures admin1..admin5@example.com exist in
+    # every environment (incl. production) so the login page always has
+    # working demo accounts. Safe to re-run: existing rows are skipped.
     try:
         from scripts.seed_users import seed
         rows = seed(count=5, role="admin")
