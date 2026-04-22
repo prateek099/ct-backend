@@ -16,6 +16,12 @@ class LLMUsage(Base):
     user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     username: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
 
+    # Prateek: project_id links a call to the project it was generated inside.
+    # Nullable — not every call runs in a project context (e.g. ad-hoc tools).
+    project_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
     endpoint: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     model: Mapped[str] = mapped_column(String(100), nullable=False)
 
