@@ -4,7 +4,7 @@ Handles URL parsing and channel/video data fetching.
 """
 import re
 from urllib.parse import urlparse, parse_qs
-from typing import Tuple
+from typing import Optional, Tuple
 
 from googleapiclient.discovery import build
 from loguru import logger
@@ -212,6 +212,60 @@ def fetch_channel_data(url: str) -> dict:
         raise
     except Exception as e:
         logger.exception("YouTube API error", url=url[:80])
+        raise AppError(f"YouTube API error: {e}")
+
+
+def fetch_trending_videos(
+    region: str = "US",
+    category_id: Optional[str] = None,
+    max_results: int = 20,
+) -> list[dict]:
+    """Fetch YouTube's most-popular chart for a region/category."""
+    logger.info(
+        "Fetching YouTube trending",
+        region=region,
+        category_id=category_id,
+        max_results=max_results,
+    )
+    try:
+        service = _get_service()
+        params = {
+            "part": "snippet,statistics,contentDetails",
+            "chart": "mostPopular",
+            "regionCode": region,
+            "maxResults": max(1, min(max_results, 50)),
+        }
+        if category_id:
+            params["videoCategoryId"] = category_id
+
+        resp = service.videos().list(**params).execute()
+        items = resp.get("items", [])
+
+        results: list[dict] = []
+        for v in items:
+            snippet = v.get("snippet", {})
+            stats = v.get("statistics", {})
+            content = v.get("contentDetails", {})
+            results.append({
+                "id": v.get("id", ""),
+                "title": snippet.get("title", ""),
+                "channel_name": snippet.get("channelTitle", ""),
+                "view_count": int(stats.get("viewCount", 0)),
+                "like_count": int(stats.get("likeCount", 0)),
+                "comment_count": int(stats.get("commentCount", 0)),
+                "published_at": snippet.get("publishedAt", ""),
+                "duration_seconds": _parse_duration_seconds(
+                    content.get("duration", "")
+                ),
+                "thumbnail_url": snippet.get("thumbnails", {})
+                .get("high", {})
+                .get("url", ""),
+            })
+        return results
+    except (BadRequestError, AppError):
+        raise
+    except Exception as e:
+        logger.exception("YouTube trending fetch failed", region=region)
         raise AppError(f"YouTube API error: {e}")
 
 
