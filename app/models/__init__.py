@@ -5,4 +5,5 @@ from app.models.project import Project  # noqa: F401
 from app.models.prompt_override import PromptOverride, PromptOverrideHistory  # noqa: F401
 from app.models.saved_idea import SavedIdea  # noqa: F401
 from app.models.channel import Channel  # noqa: F401
+from app.models.calendar_event import CalendarEvent  # noqa: F401
 from app.models.llm_usage import LLMUsage  # noqa: F401
