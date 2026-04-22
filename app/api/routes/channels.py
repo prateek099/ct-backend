@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.channel import ChannelCreate, ChannelResponse
+from app.schemas.channel import ChannelCreate, ChannelResponse, ChannelStatsResponse
 from app.services import channel_service
 
 router = APIRouter(prefix="/channels", tags=["channels"])
@@ -40,6 +40,15 @@ async def get_channel(
 ):
     row = channel_service.get_channel(db, user, channel_id)
     return ChannelResponse.from_orm_row(row)
+
+
+@router.get("/{channel_id}/stats", response_model=ChannelStatsResponse)
+async def get_channel_stats(
+    channel_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return channel_service.get_stats(db, user, channel_id)
 
 
 @router.post("/{channel_id}/refresh", response_model=ChannelResponse)
