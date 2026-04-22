@@ -7,4 +7,5 @@ from app.models.saved_idea import SavedIdea  # noqa: F401
 from app.models.channel import Channel  # noqa: F401
 from app.models.calendar_event import CalendarEvent  # noqa: F401
 from app.models.ab_test import ABTest  # noqa: F401
+from app.models.trending_cache import TrendingCache  # noqa: F401
 from app.models.llm_usage import LLMUsage  # noqa: F401
