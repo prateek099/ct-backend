@@ -9,19 +9,18 @@ Or from the host (with the backend's .env loaded):
     cd ct-backend && poetry run python -m scripts.seed_users
 
 Each created user gets:
-    email:    <slug>+<4chars>@example.com      (unique per run)
-    password: Password123!                      (same for every seeded user)
-    name:     "<First> <Last>"                  (random)
+    email:    test<N>@example.com   (regular)   or   admin<N>@example.com (admin)
+    password: Password123!          (same for every seeded user)
+    name:     "<First> <Last>"      (random)
     is_admin: True for admins, False otherwise
 
-Existing emails are skipped, so the script is safe to re-run.
+The script ensures test1..testN / admin1..adminN exist — existing emails are
+skipped, so it is safe to re-run. Use --reset to wipe prior seeds first.
 """
 from __future__ import annotations
 
 import argparse
 import random
-import secrets
-import string
 import sys
 from dataclasses import dataclass
 
@@ -59,20 +58,23 @@ def _random_name() -> str:
     return f"{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}"
 
 
-def _random_email(name: str, *, admin: bool) -> str:
-    slug = name.lower().replace(" ", ".")
-    suffix = "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(4))
-    prefix = "admin" if admin else "user"
-    return f"{prefix}.{slug}.{suffix}@example.com"
+def _email_for(index: int, *, admin: bool) -> str:
+    prefix = "admin" if admin else "test"
+    return f"{prefix}{index}@example.com"
 
 
-def _create_one(db, *, is_admin: bool, password: str) -> SeededUser:
+def _upsert_one(db, *, index: int, is_admin: bool, password: str) -> SeededUser:
+    email = _email_for(index, admin=is_admin)
+    existing = db.query(User).filter(User.email == email).first()
+    if existing is not None:
+        return SeededUser(
+            name=existing.name,
+            email=existing.email,
+            password=password,
+            is_admin=existing.is_admin,
+            created=False,
+        )
     name = _random_name()
-    email = _random_email(name, admin=is_admin)
-    # Prateek: Collision on the random suffix is astronomically unlikely, but
-    # still check — unique constraint would raise IntegrityError otherwise.
-    while db.query(User).filter(User.email == email).first():
-        email = _random_email(name, admin=is_admin)
     user = User(
         name=name,
         email=email,
@@ -101,16 +103,19 @@ def seed(
         if reset:
             deleted = (
                 db.query(User)
-                .filter(User.email.like("user.%@example.com") | User.email.like("admin.%@example.com"))
+                .filter(
+                    User.email.like("test%@example.com")
+                    | User.email.like("admin%@example.com")
+                )
                 .delete(synchronize_session=False)
             )
             db.commit()
             logger.info("Removed previously seeded users", count=deleted)
 
-        for _ in range(users):
-            results.append(_create_one(db, is_admin=False, password=password))
-        for _ in range(admins):
-            results.append(_create_one(db, is_admin=True, password=password))
+        for i in range(1, users + 1):
+            results.append(_upsert_one(db, index=i, is_admin=False, password=password))
+        for i in range(1, admins + 1):
+            results.append(_upsert_one(db, index=i, is_admin=True, password=password))
     finally:
         db.close()
     return results
@@ -121,13 +126,19 @@ def _print_table(rows: list[SeededUser]) -> None:
         print("No users created.")
         return
     print()
-    print(f"{'ROLE':<7} {'NAME':<22} {'EMAIL':<52} PASSWORD")
-    print("-" * 100)
+    print(f"{'ROLE':<7} {'STATUS':<8} {'NAME':<22} {'EMAIL':<32} PASSWORD")
+    print("-" * 90)
     for r in rows:
         role = "admin" if r.is_admin else "user"
-        print(f"{role:<7} {r.name:<22} {r.email:<52} {r.password}")
+        status = "created" if r.created else "exists"
+        print(f"{role:<7} {status:<8} {r.name:<22} {r.email:<32} {r.password}")
+    created = sum(1 for r in rows if r.created)
+    skipped = len(rows) - created
     print()
-    print(f"Created {len(rows)} user(s). All share password: {rows[0].password}")
+    print(
+        f"Created {created} user(s), skipped {skipped} existing. "
+        f"All share password: {rows[0].password}"
+    )
 
 
 def main() -> int:
