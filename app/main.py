@@ -80,6 +80,29 @@ app.include_router(seo_description.router, prefix="/api/v1")
 app.include_router(yt.router, prefix="/api/v1")
 
 
+@app.on_event("startup")
+async def _seed_demo_admins_on_startup():
+    # Prateek: Idempotent seed — ensures admin1..admin5@example.com exist so
+    # the login page always has working demo accounts. Skipped in production
+    # so we never create demo admins against a real DB.
+    if settings.environment == "production":
+        return
+    try:
+        from scripts.seed_users import seed
+        rows = seed(count=5, role="admin")
+        created = sum(1 for r in rows if r.created)
+        from loguru import logger
+        logger.info(
+            "Demo admin seed complete",
+            created=created,
+            total=len(rows),
+        )
+    except Exception:
+        # Prateek: Seed failure must not block app boot — log and carry on.
+        from loguru import logger
+        logger.exception("Demo admin seed failed")
+
+
 @app.get("/health", tags=["system"])
 async def health():
     return {"status": "ok", "app": settings.app_name, "env": settings.environment}
