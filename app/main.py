@@ -7,7 +7,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from app.api.routes import auth, users, login, projects, video_idea_gen, script_generator, title_suggestor, seo_description
+from app.api.routes import auth, users, login, projects, admin_prompts, video_idea_gen, script_generator, title_suggestor, seo_description
 from app.api.routes import youtube as yt
 from app.core.config import settings, check_optional_settings
 import app.models  # noqa: F401 — registers all models with Base.metadata
@@ -67,6 +67,7 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(login.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
+app.include_router(admin_prompts.router, prefix="/api/v1")
 app.include_router(video_idea_gen.router, prefix="/api/v1")
 app.include_router(script_generator.router, prefix="/api/v1")
 app.include_router(title_suggestor.router, prefix="/api/v1")

@@ -12,6 +12,7 @@ from app.core.exceptions import AppError, BadRequestError
 from app.models.user import User
 from app.prompts import script as script_prompt
 from app.schemas.ai import ChannelContext
+from app.services import prompt_override_service
 from app.services.llm_tracker import track_openai_call
 
 router = APIRouter()
@@ -75,7 +76,12 @@ def generate_script(
         raise BadRequestError("Title cannot be empty")
 
     logger.info("Script gen", title=request.title[:60], flavor=request.flavor)
-    system_prompt, user_prompt = script_prompt.build(request)
+    override = prompt_override_service.get_override(db, "script")
+    system_prompt, user_prompt = script_prompt.build(
+        request,
+        system_override=override.system_prompt if override else None,
+        template_override=override.user_prompt_template if override else None,
+    )
     output = track_openai_call(
         db, user=user, endpoint="script_generator",
         user_prompt=user_prompt, system_prompt=system_prompt,

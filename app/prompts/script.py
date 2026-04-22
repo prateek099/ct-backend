@@ -1,5 +1,5 @@
 """Prompt templates for the /script-generator endpoint."""
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.api.routes.script_generator import ScriptRequest
@@ -68,7 +68,11 @@ Match the tone and vocabulary style of this channel.\
 """
 
 
-def build(req: "ScriptRequest") -> tuple[str, str]:
+def build(
+    req: "ScriptRequest",
+    system_override: Optional[str] = None,
+    template_override: Optional[str] = None,
+) -> tuple[str, str]:
     """Return (system_prompt, user_prompt) for the script-gen call."""
     avg_duration = req.channel_context.average_duration_seconds if req.channel_context else 600
     avg_min = max(1, avg_duration // 60)
@@ -87,7 +91,8 @@ def build(req: "ScriptRequest") -> tuple[str, str]:
     flavor = req.flavor.lower() if req.flavor else "educational"
     flavor_desc = FLAVORS.get(flavor, FLAVORS["educational"])
 
-    user_prompt = USER_PROMPT_TEMPLATE.format(
+    template = template_override or USER_PROMPT_TEMPLATE
+    user_prompt = template.format(
         title=req.title,
         hook=req.hook,
         angle=req.angle,
@@ -99,4 +104,4 @@ def build(req: "ScriptRequest") -> tuple[str, str]:
         wpm=WORDS_PER_MINUTE,
         channel_block=channel_block,
     )
-    return SYSTEM_PROMPT, user_prompt
+    return system_override or SYSTEM_PROMPT, user_prompt

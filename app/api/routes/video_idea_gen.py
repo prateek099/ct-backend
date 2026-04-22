@@ -12,6 +12,7 @@ from app.core.exceptions import AppError, BadRequestError
 from app.models.user import User
 from app.prompts import ideas as ideas_prompt
 from app.schemas.ai import ChannelContext
+from app.services import prompt_override_service
 from app.services.llm_tracker import track_openai_call
 
 router = APIRouter()
@@ -61,7 +62,13 @@ def generate_video_ideas(
         raise BadRequestError("Prompt cannot be empty")
 
     logger.info("Video idea gen", topic=request.prompt[:50])
-    system_prompt, user_prompt = ideas_prompt.build(request.prompt, request.channel_context)
+    override = prompt_override_service.get_override(db, "ideas")
+    system_prompt, user_prompt = ideas_prompt.build(
+        request.prompt,
+        request.channel_context,
+        system_override=override.system_prompt if override else None,
+        template_override=override.user_prompt_template if override else None,
+    )
     output = track_openai_call(
         db, user=user, endpoint="video_idea_gen",
         user_prompt=user_prompt, system_prompt=system_prompt,

@@ -13,6 +13,7 @@ from app.models.user import User
 from app.prompts import seo as seo_prompt
 from app.prompts.seo import HASHTAG_COUNT, MAX_TAGS_CHARS
 from app.schemas.ai import ChannelContext
+from app.services import prompt_override_service
 from app.services.llm_tracker import track_openai_call
 
 router = APIRouter()
@@ -74,7 +75,12 @@ def generate_seo_description(
         raise BadRequestError("Topic cannot be empty")
 
     logger.info("SEO description gen", title=request.title[:60])
-    system_prompt, user_prompt = seo_prompt.build(request)
+    override = prompt_override_service.get_override(db, "seo")
+    system_prompt, user_prompt = seo_prompt.build(
+        request,
+        system_override=override.system_prompt if override else None,
+        template_override=override.user_prompt_template if override else None,
+    )
     output = track_openai_call(
         db, user=user, endpoint="seo_description",
         user_prompt=user_prompt, system_prompt=system_prompt,
