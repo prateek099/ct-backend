@@ -1,6 +1,6 @@
 """Pydantic schemas for /channels — cached YouTube channel snapshots."""
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -43,3 +43,40 @@ class ChannelResponse(BaseModel):
             last_refreshed_at=row.last_refreshed_at,
             created_at=row.created_at,
         )
+
+
+class TopVideo(BaseModel):
+    id: str
+    title: str
+    view_count: int
+    like_count: int
+    comment_count: int
+    duration_seconds: int
+    published_at: str
+
+
+class ChannelStatsResponse(BaseModel):
+    channel_id: int
+    channel_name: str
+    subscriber_count: Optional[int] = None
+    total_views: Optional[int] = None
+    video_count: Optional[int] = None
+    average_duration_seconds: Optional[int] = None
+    sample_size: int = Field(
+        ...,
+        description="Number of recent videos the aggregates are computed over.",
+    )
+    recent_views_sum: int = 0
+    recent_likes_sum: int = 0
+    recent_comments_sum: int = 0
+    average_views_per_video: int = 0
+    engagement_rate: float = Field(
+        0.0,
+        description="(likes + comments) / views across the sample, 0.0 if no views.",
+    )
+    videos_per_week: float = Field(
+        0.0,
+        description="Publish cadence across the sample window (first → last upload).",
+    )
+    top_videos: List[TopVideo] = Field(default_factory=list)
+    last_refreshed_at: datetime
