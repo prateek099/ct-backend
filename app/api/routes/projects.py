@@ -1,4 +1,4 @@
-"""Project CRUD routes — list / create / get / patch / delete. All owner-scoped."""
+"""Project CRUD routes — list / create / get / patch / delete / publish. All owner-scoped."""
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, status
@@ -10,7 +10,6 @@ from app.models.user import User
 from app.schemas.project import (
     ProjectCreate,
     ProjectResponse,
-    ProjectStatus,
     ProjectUpdate,
 )
 from app.services import project_service
@@ -34,7 +33,9 @@ async def create_project(
 
 @router.get("/", response_model=list[ProjectResponse])
 async def list_projects(
-    status_filter: Optional[ProjectStatus] = Query(default=None, alias="status"),
+    # Prateek: Accepts a single status or comma-separated values (e.g. "draft,saved")
+    # so Dashboard can fetch In-Flight projects in one request.
+    status_filter: Optional[str] = Query(default=None, alias="status"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -65,6 +66,16 @@ async def update_project(
 ):
     """Partial update. Only fields present in the body are written."""
     return project_service.update_project(db, current_user, project_id, payload)
+
+
+@router.post("/{project_id}/publish", response_model=ProjectResponse)
+async def publish_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Mark a project as published. 409 if already published."""
+    return project_service.publish_project(db, current_user, project_id)
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)

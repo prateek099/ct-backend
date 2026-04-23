@@ -4,7 +4,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-ProjectStatus = Literal["draft", "published", "archived"]
+ProjectStatus = Literal["draft", "saved", "published", "archived"]
 
 
 class ProjectCreate(BaseModel):
@@ -15,6 +15,7 @@ class ProjectCreate(BaseModel):
     script_json: Optional[dict] = None
     title_json: Optional[dict] = None
     seo_json: Optional[dict] = None
+    thumbnail_json: Optional[dict] = None
     slug: Optional[str] = Field(default=None, max_length=80)
 
 
@@ -26,6 +27,7 @@ class ProjectUpdate(BaseModel):
     script_json: Optional[dict] = None
     title_json: Optional[dict] = None
     seo_json: Optional[dict] = None
+    thumbnail_json: Optional[dict] = None
     slug: Optional[str] = Field(default=None, max_length=80)
 
 
@@ -39,7 +41,9 @@ class ProjectResponse(BaseModel):
     script_json: Optional[dict] = None
     title_json: Optional[dict] = None
     seo_json: Optional[dict] = None
+    thumbnail_json: Optional[dict] = None
     slug: Optional[str] = None
+    published_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
