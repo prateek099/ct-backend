@@ -25,9 +25,13 @@ class ScriptRequest(BaseModel):
     hook: str = Field(..., description="Opening hook line")
     angle: str = Field(..., description="Content angle (e.g. Beginner, Controversial)")
     format: str = Field(..., description="Video format (e.g. Tutorial, Listicle)")
+    reasoning: Optional[str] = Field(
+        None,
+        description="Why-this-works reasoning for the idea. Used to infer mood when flavor='auto'.",
+    )
     flavor: str = Field(
-        "educational",
-        description="Script tone: educational | entertaining | storytelling | documentary",
+        "auto",
+        description="Script tone: auto | educational | entertaining | storytelling | documentary. 'auto' lets the LLM infer mood from title+hook+angle+reasoning.",
     )
     # Prateek: Steering fields — all optional; applied on top of the base flavor prompt.
     tone: Optional[str] = Field(
@@ -76,8 +80,9 @@ class ScriptResponse(BaseModel):
     summary="Generate a video script",
     description=(
         "Generates a full, section-by-section YouTube script calibrated to the "
-        "channel's average video duration. Supports four flavors: educational, "
-        "entertaining, storytelling, and documentary."
+        "channel's average video duration. Flavor can be 'auto' (LLM infers mood "
+        "from title/hook/angle/reasoning) or one of: educational, entertaining, "
+        "storytelling, documentary."
     ),
     responses={
         400: {"description": "Missing or invalid input"},

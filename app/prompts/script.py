@@ -20,6 +20,17 @@ FLAVORS = {
     "documentary": "research-heavy, authoritative, journalistic — present facts and evidence",
 }
 
+# Prateek: sentinel — LLM picks the flavor from title/hook/angle/reasoning.
+AUTO_FLAVOR_DESC = (
+    "auto-detect the mood from the VIDEO DETAILS above. FIRST, silently classify "
+    "the idea into exactly ONE of: educational, entertaining, storytelling, "
+    "documentary — based on the title, hook, angle, and reasoning. THEN write the "
+    "ENTIRE script in that single detected mood. Do NOT mix moods. Examples: a "
+    "horror/mystery hook → storytelling; a '5 ways to…' title → educational or "
+    "entertaining depending on tone; a deep-dive into a historical event → "
+    "documentary; a meme-y roast → entertaining."
+)
+
 POV_DESCRIPTIONS = {
     "first_person_story": "told in first person as a personal experience/story",
     "narrator_tutorial":  "third-person narrator walking the viewer through steps",
@@ -36,11 +47,11 @@ USER_PROMPT_TEMPLATE = """\
 Write a complete, ready-to-record YouTube video script.
 
 VIDEO DETAILS:
-  Title   : {title}
-  Hook    : {hook}
-  Angle   : {angle}
-  Format  : {format}
-  Flavor  : {flavor} — {flavor_desc}
+  Title    : {title}
+  Hook     : {hook}
+  Angle    : {angle}
+{reasoning_block}  Format   : {format}
+  Flavor   : {flavor} — {flavor_desc}
 {steering_block}
 TARGET LENGTH:
   Aim for approximately {target_words} words total ({target_min} minutes; \
@@ -118,16 +129,26 @@ def build(
             titles=titles,
         )
 
-    flavor = req.flavor.lower() if req.flavor else "educational"
-    flavor_desc = FLAVORS.get(flavor, FLAVORS["educational"])
+    flavor = req.flavor.lower() if req.flavor else "auto"
+    if flavor == "auto" or flavor not in FLAVORS:
+        flavor_label = "Auto"
+        flavor_desc = AUTO_FLAVOR_DESC
+    else:
+        flavor_label = flavor.capitalize()
+        flavor_desc = FLAVORS[flavor]
+
+    reasoning_block = (
+        f"  Reasoning: {req.reasoning.strip()}\n" if getattr(req, "reasoning", None) else ""
+    )
 
     template = template_override or USER_PROMPT_TEMPLATE
     user_prompt = template.format(
         title=req.title,
         hook=req.hook,
         angle=req.angle,
+        reasoning_block=reasoning_block,
         format=req.format,
-        flavor=flavor.capitalize(),
+        flavor=flavor_label,
         flavor_desc=flavor_desc,
         steering_block=_steering_block(req),
         target_words=target_words,
