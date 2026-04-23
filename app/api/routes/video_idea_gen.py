@@ -1,8 +1,8 @@
-"""Route: POST /video-idea-gen — generates 10 video ideas from a topic."""
+"""Route: POST /video-idea-gen — generates video ideas from a topic or niche."""
 from fastapi import APIRouter, Depends
 from loguru import logger
 from pydantic import BaseModel, Field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 from sqlalchemy.orm import Session
 
@@ -25,6 +25,18 @@ class VideoIdeaRequest(BaseModel):
         ...,
         description="Topic or niche to generate video ideas for.",
         examples=["Fitness tips for busy professionals"],
+    )
+    # Prateek: "channel" = prompt came from a YT URL/@handle (channel context likely present);
+    # "niche" = free-text niche (no channel lookup performed).
+    input_type: Literal["channel", "niche"] = Field(
+        default="channel",
+        description="Whether the prompt is a channel identifier or a free-text niche.",
+    )
+    count: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        description="Number of ideas to generate.",
     )
     channel_context: Optional[ChannelContext] = Field(
         None,
@@ -61,11 +73,13 @@ def generate_video_ideas(
     if not request.prompt.strip():
         raise BadRequestError("Prompt cannot be empty")
 
-    logger.info("Video idea gen", topic=request.prompt[:50])
+    logger.info("Video idea gen", topic=request.prompt[:50], input_type=request.input_type, count=request.count)
     override = prompt_override_service.get_override(db, "ideas")
     system_prompt, user_prompt = ideas_prompt.build(
         request.prompt,
         request.channel_context,
+        input_type=request.input_type,
+        count=request.count,
         system_override=override.system_prompt if override else None,
         template_override=override.user_prompt_template if override else None,
     )

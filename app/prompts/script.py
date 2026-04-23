@@ -7,11 +7,24 @@ if TYPE_CHECKING:
 # Prateek: ~130 words per minute is average speaking pace for YouTube videos
 WORDS_PER_MINUTE = 130
 
+LENGTH_TARGETS = {
+    "short":  3,   # minutes
+    "medium": 7,
+    "long":  15,
+}
+
 FLAVORS = {
     "educational": "structured, clear, step-by-step — teach the viewer something actionable",
     "entertaining": "energetic, casual, humour-driven — keep the viewer engaged and smiling",
     "storytelling": "narrative arc with personal anecdotes — build emotional connection",
     "documentary": "research-heavy, authoritative, journalistic — present facts and evidence",
+}
+
+POV_DESCRIPTIONS = {
+    "first_person_story": "told in first person as a personal experience/story",
+    "narrator_tutorial":  "third-person narrator walking the viewer through steps",
+    "listicle":           "numbered-list structure (e.g. '5 ways to…')",
+    "review":             "structured product/topic review with pros, cons, verdict",
 }
 
 SYSTEM_PROMPT = (
@@ -28,9 +41,9 @@ VIDEO DETAILS:
   Angle   : {angle}
   Format  : {format}
   Flavor  : {flavor} — {flavor_desc}
-
+{steering_block}
 TARGET LENGTH:
-  Aim for approximately {target_words} words total (channel average is {avg_min} minutes; \
+  Aim for approximately {target_words} words total ({target_min} minutes; \
 speaking pace ≈ {wpm} words/min).
 
 {channel_block}
@@ -68,15 +81,32 @@ Match the tone and vocabulary style of this channel.\
 """
 
 
+def _steering_block(req: "ScriptRequest") -> str:
+    """Build the optional steering lines injected between DETAILS and TARGET LENGTH."""
+    lines = []
+    if req.tone:
+        lines.append(f"  Tone    : {req.tone}")
+    if req.audience:
+        lines.append(f"  Audience: {req.audience}")
+    if req.pov_structure:
+        lines.append(f"  POV     : {POV_DESCRIPTIONS.get(req.pov_structure, req.pov_structure)}")
+    return ("\n" + "\n".join(lines) + "\n") if lines else ""
+
+
 def build(
     req: "ScriptRequest",
     system_override: Optional[str] = None,
     template_override: Optional[str] = None,
 ) -> tuple[str, str]:
     """Return (system_prompt, user_prompt) for the script-gen call."""
-    avg_duration = req.channel_context.average_duration_seconds if req.channel_context else 600
-    avg_min = max(1, avg_duration // 60)
-    target_words = avg_min * WORDS_PER_MINUTE
+    # Prateek: length steering overrides channel average; fall back to channel avg then 10 min.
+    if req.length and req.length in LENGTH_TARGETS:
+        target_min = LENGTH_TARGETS[req.length]
+    else:
+        avg_duration = req.channel_context.average_duration_seconds if req.channel_context else 600
+        target_min = max(1, avg_duration // 60)
+
+    target_words = target_min * WORDS_PER_MINUTE
 
     channel_block = ""
     if req.channel_context and req.channel_context.recent_video_titles:
@@ -99,8 +129,9 @@ def build(
         format=req.format,
         flavor=flavor.capitalize(),
         flavor_desc=flavor_desc,
+        steering_block=_steering_block(req),
         target_words=target_words,
-        avg_min=avg_min,
+        target_min=target_min,
         wpm=WORDS_PER_MINUTE,
         channel_block=channel_block,
     )
