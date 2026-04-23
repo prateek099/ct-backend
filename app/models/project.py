@@ -40,8 +40,13 @@ class Project(Base):
     script_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     title_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     seo_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    thumbnail_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     slug: Mapped[str | None] = mapped_column(String(80), nullable=True)
+
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
@@ -55,7 +60,7 @@ class Project(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "status IN ('draft','published','archived')",
+            "status IN ('draft','saved','published','archived')",
             name="ck_projects_status",
         ),
         Index("ix_projects_user_status_updated", "user_id", "status", "updated_at"),
