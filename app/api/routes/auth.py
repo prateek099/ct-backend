@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse
+from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse, GoogleLoginRequest
 from app.schemas.user import UserResponse
 from app.services import auth_service
 
@@ -26,6 +26,20 @@ async def login(payload: LoginRequest, db: Session = Depends(get_db)):
     Returns access_token (30 min) and refresh_token (7 days).
     """
     return auth_service.login(db, payload)
+
+
+@router.post("/google", response_model=TokenResponse)
+def google_login(payload: GoogleLoginRequest, db: Session = Depends(get_db)):
+    """Authenticate via Google OAuth."""
+    return auth_service.google_login(db, payload.code)
+
+
+@router.get("/google/url")
+async def get_google_oauth_url():
+    """Get the Google OAuth login URL."""
+    from app.core.config import settings
+    url = f"https://accounts.google.com/o/oauth2/v2/auth?client_id={settings.google_client_id}&redirect_uri={settings.google_redirect_uri}&response_type=code&scope=openid%20email%20profile&access_type=offline&prompt=consent"
+    return {"url": url}
 
 
 @router.post("/refresh", response_model=TokenResponse)
