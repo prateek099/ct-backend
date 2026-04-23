@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends
 from loguru import logger
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from sqlalchemy.orm import Session
 
@@ -28,6 +28,23 @@ class ScriptRequest(BaseModel):
     flavor: str = Field(
         "educational",
         description="Script tone: educational | entertaining | storytelling | documentary",
+    )
+    # Prateek: Steering fields — all optional; applied on top of the base flavor prompt.
+    tone: Optional[str] = Field(
+        None,
+        description="Explicit tone override (e.g. Casual, Professional, Funny, Dramatic, Urgent).",
+    )
+    audience: Optional[str] = Field(
+        None,
+        description="Target audience free text (e.g. 'beginner Python developers').",
+    )
+    length: Optional[Literal["short", "medium", "long"]] = Field(
+        None,
+        description="Target script length: short (~3 min) | medium (~7 min) | long (~15 min).",
+    )
+    pov_structure: Optional[Literal["first_person_story", "narrator_tutorial", "listicle", "review"]] = Field(
+        None,
+        description="Narrative structure / point-of-view style.",
     )
     channel_context: Optional[ChannelContext] = None
 
