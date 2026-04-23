@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     # External APIs
     openai_api_key: str = ""
     youtube_api_key: str = ""
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = ""
 
     # Prateek: Demo credentials for the /login endpoint — base64-decoded at the wire.
     # Override via DEMO_USERNAME / DEMO_PASSWORD env vars in production.
