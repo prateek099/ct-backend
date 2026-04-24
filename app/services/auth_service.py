@@ -14,6 +14,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from loguru import logger
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 from app.services.user_service import get_user_by_email
@@ -21,24 +22,43 @@ from app.services.user_service import get_user_by_email
 
 def register(db: Session, payload: RegisterRequest) -> User:
     if get_user_by_email(db, payload.email):
+        logger.warning("Registration failed: Email already exists", email=payload.email)
         raise ConflictError(messages.EMAIL_ALREADY_REGISTERED)
+    
+    logger.info("Creating new user via normal signup", email=payload.email, name=payload.name)
     user = User(
         name=payload.name,
         email=payload.email,
         hashed_password=hash_password(payload.password),
     )
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    try:
+        db.commit()
+        db.refresh(user)
+        logger.success("User successfully stored in database", user_id=user.id, email=user.email)
+    except Exception as e:
+        db.rollback()
+        logger.error("Failed to store user in database", error=str(e))
+        raise
     return user
 
 
 def login(db: Session, payload: LoginRequest) -> TokenResponse:
+    logger.info("Login attempt", email=payload.email)
     user = get_user_by_email(db, payload.email)
-    if not user or not verify_password(payload.password, user.hashed_password):
+    if not user:
+        logger.warning("Login failed: User not found", email=payload.email)
         raise UnauthorizedError(messages.INVALID_CREDENTIALS)
+        
+    if not verify_password(payload.password, user.hashed_password):
+        logger.warning("Login failed: Incorrect password", email=payload.email)
+        raise UnauthorizedError(messages.INVALID_CREDENTIALS)
+        
     if not user.is_active:
+        logger.warning("Login failed: Account disabled", email=payload.email)
         raise UnauthorizedError(messages.ACCOUNT_DISABLED)
+        
+    logger.success("Login successful", user_id=user.id, email=user.email)
     return TokenResponse(
         name=user.name,
         access_token=create_access_token(user.id),
@@ -76,31 +96,35 @@ def google_login(db: Session, code: str) -> TokenResponse:
         "grant_type": "authorization_code",
     }
     
+    logger.info("Google OAuth login attempt")
     response = httpx.post(token_url, data=data)
     if response.status_code != 200:
-        from loguru import logger
         logger.error(f"Google Token API failed: {response.text}")
         raise UnauthorizedError(f"Failed to authenticate with Google: {response.text}")
         
     tokens = response.json()
     id_token = tokens.get("id_token")
     if not id_token:
+        logger.error("No ID token received from Google")
         raise UnauthorizedError("No ID token received from Google")
             
-    # Decode ID token to get user info (no need to verify signature here as it came directly from Google)
+    # Decode ID token to get user info
     try:
         user_info = jwt.get_unverified_claims(id_token)
     except Exception:
+        logger.error("Failed to decode Google ID token")
         raise UnauthorizedError("Invalid ID token")
         
     email = user_info.get("email")
     name = user_info.get("name", "Google User")
     
     if not email:
+        logger.error("Google account has no email")
         raise UnauthorizedError("Google account has no email associated")
         
     user = get_user_by_email(db, email)
     if not user:
+        logger.info("User not found for Google email, creating new record", email=email)
         # Create new user with random unusable password
         user = User(
             name=name,
@@ -108,10 +132,19 @@ def google_login(db: Session, code: str) -> TokenResponse:
             hashed_password=hash_password(secrets.token_hex(32)),
         )
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        try:
+            db.commit()
+            db.refresh(user)
+            logger.success("New Google user stored in database", user_id=user.id, email=user.email)
+        except Exception as e:
+            db.rollback()
+            logger.error("Failed to store Google user", error=str(e))
+            raise
+    else:
+        logger.info("Existing user logged in via Google", user_id=user.id, email=email)
         
     if not user.is_active:
+        logger.warning("Google login failed: Account disabled", email=email)
         raise UnauthorizedError(messages.ACCOUNT_DISABLED)
         
     return TokenResponse(
