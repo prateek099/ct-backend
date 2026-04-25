@@ -36,6 +36,19 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     google_redirect_uri: str = ""
 
+    # SMTP — transactional emails (welcome email, password reset, etc.)
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_from_name: str = "Creator Tools"
+    smtp_use_tls: bool = True
+
+    # Frontend
+    frontend_url: str = "http://localhost:5173"
+    # frontend_url: str = "https://ct-frontend-awdz.onrender.com/"
+
     # Prateek: Demo credentials for the /login endpoint — base64-decoded at the wire.
     # Override via DEMO_USERNAME / DEMO_PASSWORD env vars in production.
     demo_username: str = "u"

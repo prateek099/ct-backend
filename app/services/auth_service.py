@@ -18,6 +18,7 @@ from loguru import logger
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 from app.services.user_service import get_user_by_email
+from app.services.email_service import send_welcome_email
 
 
 def register(db: Session, payload: RegisterRequest) -> User:
@@ -40,6 +41,12 @@ def register(db: Session, payload: RegisterRequest) -> User:
         db.rollback()
         logger.error("Failed to store user in database", error=str(e))
         raise
+
+    # Send welcome email (non-blocking, won't break signup if it fails)
+    try:
+        send_welcome_email(user.email, user.name)
+    except Exception as e:
+        logger.error("Welcome email dispatch failed", email=user.email, error=str(e))
     return user
 
 
@@ -140,6 +147,12 @@ def google_login(db: Session, code: str) -> TokenResponse:
             db.rollback()
             logger.error("Failed to store Google user", error=str(e))
             raise
+
+        # Send welcome email (non-blocking, won't break signup if it fails)
+        try:
+            send_welcome_email(user.email, user.name)
+        except Exception as e:
+            logger.error("Welcome email dispatch failed", email=user.email, error=str(e))
     else:
         logger.info("Existing user logged in via Google", user_id=user.id, email=email)
         
