@@ -59,6 +59,91 @@ def send_welcome_email(to_email: str, user_name: str) -> None:
     _send_email_async(to_email, subject, html_body)
 
 
+# ── Password reset email ─────────────────────────────────────────────────────
+
+
+def send_password_reset_email(to_email: str, user_name: str, reset_link: str) -> None:
+    """Send a password reset link to the user (non-blocking)."""
+    subject = "Reset your Creator Tools password 🔒"
+    html_body = _build_password_reset_html(user_name, reset_link)
+    _send_email_async(to_email, subject, html_body)
+
+
+def _build_password_reset_html(user_name: str, reset_link: str) -> str:
+    """Return the HTML body for the password reset email."""
+    return f"""\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reset Your Password</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f7;font-family:'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f7;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0"
+               style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#a855f7 100%);padding:48px 40px;text-align:center;">
+              <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:-0.5px;">
+                🎬 Creator Tools
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px;">
+              <h2 style="margin:0 0 16px;color:#1e293b;font-size:22px;font-weight:600;">
+                Password Reset Request
+              </h2>
+              <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.7;">
+                Hi {user_name}, we received a request to reset your password for your Creator Tools account.
+              </p>
+              <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.7;">
+                Click the button below to set a new password. This link will expire in 15 minutes.
+              </p>
+
+              <!-- CTA Button -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="padding:8px 0 24px;">
+                    <a href="{reset_link}"
+                       style="display:inline-block;padding:14px 36px;background:linear-gradient(135deg,#6366f1,#8b5cf6);
+                              color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;
+                              box-shadow:0 4px 14px rgba(99,102,241,0.4);">
+                      🔒 Reset Password
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:20px 0 0;color:#94a3b8;font-size:13px;line-height:1.6;">
+                If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f8fafc;padding:24px 40px;text-align:center;border-top:1px solid #e2e8f0;">
+              <p style="margin:0;color:#94a3b8;font-size:12px;">
+                &copy; 2026 Creator Tools. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+"""
+
+
 def _build_welcome_html(user_name: str) -> str:
     """Return the HTML body for the welcome email."""
     frontend_url = settings.frontend_url if hasattr(settings, "frontend_url") else "http://localhost:5173"

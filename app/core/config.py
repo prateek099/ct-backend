@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     # Frontend
     frontend_url: str = "http://localhost:5173"
     # frontend_url: str = "https://ct-frontend-awdz.onrender.com/"
+    password_reset_url: str = "http://localhost:5173/reset-password"
 
     # Prateek: Demo credentials for the /login endpoint — base64-decoded at the wire.
     # Override via DEMO_USERNAME / DEMO_PASSWORD env vars in production.

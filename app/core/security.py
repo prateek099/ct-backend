@@ -60,3 +60,12 @@ def decode_token(token: str) -> dict:
         settings.jwt_secret_key,
         algorithms=[settings.jwt_algorithm],
     )
+
+
+def create_password_reset_token(email: str) -> str:
+    """Create a short-lived token for password reset (15 min)."""
+    return _create_token(
+        email,
+        timedelta(minutes=15),
+        token_type="password_reset",
+    )
