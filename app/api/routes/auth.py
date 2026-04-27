@@ -3,9 +3,18 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core import messages
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse, GoogleLoginRequest
+from app.schemas.auth import (
+    ForgotPasswordRequest,
+    GoogleLoginRequest,
+    LoginRequest,
+    RefreshRequest,
+    RegisterRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+)
 from app.schemas.user import UserResponse
 from app.services import auth_service
 
@@ -52,3 +61,20 @@ async def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
 async def me(current_user: User = Depends(get_current_user)):
     """Return the currently authenticated user's profile."""
     return current_user
+
+
+@router.post("/forgot-password")
+async def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Submit a forgot password request.
+    Always returns a success message to prevent email enumeration.
+    """
+    auth_service.forgot_password(db, payload.email)
+    return {"message": messages.PASSWORD_RESET_SENT}
+
+
+@router.post("/reset-password")
+async def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Reset password using the token sent via email."""
+    auth_service.reset_password(db, payload)
+    return {"message": messages.PASSWORD_RESET_SUCCESS}

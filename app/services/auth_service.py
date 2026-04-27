@@ -6,9 +6,10 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 
 from app.core import messages
-from app.core.exceptions import ConflictError, UnauthorizedError
+from app.core.exceptions import BadRequestError, ConflictError, NotFoundError, UnauthorizedError
 from app.core.security import (
     create_access_token,
+    create_password_reset_token,
     create_refresh_token,
     decode_token,
     hash_password,
@@ -16,9 +17,9 @@ from app.core.security import (
 )
 from loguru import logger
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
+from app.schemas.auth import ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, TokenResponse
 from app.services.user_service import get_user_by_email
-from app.services.email_service import send_welcome_email
+from app.services.email_service import send_password_reset_email, send_welcome_email
 
 
 def register(db: Session, payload: RegisterRequest) -> User:
@@ -165,3 +166,55 @@ def google_login(db: Session, code: str) -> TokenResponse:
         access_token=create_access_token(user.id),
         refresh_token=create_refresh_token(user.id),
     )
+
+
+def forgot_password(db: Session, email: str) -> None:
+    """
+    Handle forgot password request.
+    Always returns None to prevent email enumeration.
+    """
+    logger.info("Forgot password request", email=email)
+    user = get_user_by_email(db, email)
+    if not user:
+        logger.warning("Forgot password failed: Email not found", email=email)
+        raise NotFoundError(messages.EMAIL_NOT_FOUND)
+
+    token = create_password_reset_token(email)
+    reset_link = f"{settings.password_reset_url}?token={token}"
+    
+    try:
+        send_password_reset_email(user.email, user.name, reset_link)
+    except Exception as e:
+        logger.error("Failed to send reset email", email=email, error=str(e))
+
+
+def reset_password(db: Session, payload: ResetPasswordRequest) -> None:
+    """
+    Reset user password using a valid token.
+    """
+    try:
+        token_payload = decode_token(payload.token)
+    except Exception:
+        logger.warning("Reset password failed: Invalid or expired token")
+        raise BadRequestError(messages.PASSWORD_RESET_TOKEN_INVALID)
+
+    if token_payload.get("type") != "password_reset":
+        logger.warning("Reset password failed: Incorrect token type")
+        raise BadRequestError(messages.PASSWORD_RESET_TOKEN_INVALID)
+
+    email = token_payload.get("sub")
+    user = get_user_by_email(db, email)
+    if not user:
+        logger.error("Reset password failed: User in token not found", email=email)
+        raise BadRequestError(messages.USER_NOT_FOUND)
+
+    logger.info("Updating password for user", user_id=user.id, email=email)
+    user.hashed_password = hash_password(payload.new_password)
+    
+    try:
+        db.commit()
+        logger.success("Password successfully reset", user_id=user.id, email=email)
+    except Exception as e:
+        db.rollback()
+        logger.error("Failed to update password in database", error=str(e))
+        raise
