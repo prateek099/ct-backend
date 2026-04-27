@@ -66,7 +66,6 @@ def upgrade() -> None:
     op.create_index("ix_ab_tests_project", "ab_tests", ["project_id"])
 
     # Prateek: Partial unique index — at most one live test per project.
-    # SQLite does support partial indexes, Postgres does too; dialect-agnostic.
     op.create_index(
         "ux_ab_tests_one_running_per_project",
         "ab_tests",

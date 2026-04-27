@@ -79,23 +79,19 @@ def upgrade() -> None:
             "llm_usage",
             sa.Column("project_id", sa.Integer(), nullable=True, index=True),
         )
-        # Prateek: SQLite (used in tests) doesn't support ALTER TABLE ADD CONSTRAINT
-        # for FKs — skip the FK creation there. Postgres gets the real FK.
-        if op.get_bind().dialect.name != "sqlite":
-            op.create_foreign_key(
-                "fk_llm_usage_project_id",
-                "llm_usage",
-                "projects",
-                ["project_id"],
-                ["id"],
-                ondelete="SET NULL",
-            )
+        op.create_foreign_key(
+            "fk_llm_usage_project_id",
+            "llm_usage",
+            "projects",
+            ["project_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
 
 
 def downgrade() -> None:
     if _column_exists("llm_usage", "project_id"):
-        if op.get_bind().dialect.name != "sqlite":
-            op.drop_constraint("fk_llm_usage_project_id", "llm_usage", type_="foreignkey")
+        op.drop_constraint("fk_llm_usage_project_id", "llm_usage", type_="foreignkey")
         op.drop_column("llm_usage", "project_id")
 
     if "projects" in _existing_tables():

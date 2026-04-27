@@ -18,7 +18,7 @@ FastAPI backend for Creator Tools — JWT auth, SQLAlchemy 2.0, OpenAI integrati
 | Python | **≥ 3.10** | 3.10, 3.11, and 3.12 all tested |
 | Poetry | **1.8.x** | Dependency + virtualenv manager |
 | Docker Desktop | ≥ 4.x | Only needed for the Docker path |
-| PostgreSQL | ≥ 14 | Only needed if not using SQLite or Docker |
+| PostgreSQL | ≥ 14 | Docker Compose provides one; otherwise install locally |
 
 ---
 
@@ -57,21 +57,23 @@ git push origin --delete feat/my-feature  # remote
 
 ---
 
-## Quick Start — no Docker, SQLite (fastest)
+## Quick Start — Docker (recommended)
 
-Works on Mac and Windows. No database setup required.
+Spins up the API + Postgres together. Works on Mac and Windows.
 
 ```bash
 git clone https://github.com/prateek099/ct-backend.git ct-backend && cd ct-backend
 cp .env.example .env          # Windows: Copy-Item .env.example .env
-poetry install
-poetry run uvicorn app.main:app --reload
+docker compose up
 ```
 
 Server → `http://localhost:8000`  
 Health check → `http://localhost:8000/health`
 
 Set `DEBUG=true` in `.env` to enable Swagger at `http://localhost:8000/docs`.
+
+> **Postgres-only.** SQLite is no longer supported at runtime. Tests still use a
+> local SQLite file (see `tests/conftest.py`) for speed and isolation.
 
 ---
 
@@ -214,9 +216,9 @@ poetry run pytest
 
 ---
 
-### Switch to PostgreSQL (without Docker)
+### PostgreSQL setup (without Docker)
 
-The default database is SQLite (`ct.db` in the project root). To use PostgreSQL:
+The app requires Postgres. To run without Docker, install Postgres locally and:
 
 **1 — Create a database and user**
 
@@ -254,29 +256,7 @@ poetry run alembic revision -m "short description"
 
 Docker Desktop must be running (`docker info` should succeed).
 
-### Option A — SQLite (single container, zero setup)
-
-Create `docker-compose.yml` in the project root:
-
-```yaml
-services:
-  api:
-    build:
-      context: .
-      target: development
-    ports:
-      - "8000:8000"
-      - "5678:5678"       # debugpy — attach VS Code debugger
-    volumes:
-      - .:/app
-      - /app/.venv        # preserve virtualenv inside container
-    env_file:
-      - .env
-    environment:
-      - DATABASE_URL=sqlite:///./ct.db
-```
-
-### Option B — PostgreSQL (two containers)
+### PostgreSQL (two containers)
 
 ```yaml
 services:
@@ -348,7 +328,7 @@ curl http://localhost:8000/health
 | `APP_NAME` | `Creator Tools API` | Name shown in API responses |
 | `DEBUG` | `false` | `true` → enables `/docs` and `/redoc` |
 | `ENVIRONMENT` | `development` | `development` \| `staging` \| `production` |
-| `DATABASE_URL` | `sqlite:///./ct.db` | SQLite or `postgresql+psycopg://…` |
+| `DATABASE_URL` | `postgresql+psycopg://ct_user:ct_pass@db:5432/creator_tools` | Postgres URL — Render's `postgres://` is auto-normalised to `postgresql+psycopg://` (psycopg3) |
 | `JWT_SECRET_KEY` | _(insecure default)_ | **Change in production.** Use `openssl rand -hex 32` |
 | `JWT_ALGORITHM` | `HS256` | JWT signing algorithm |
 | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Access token lifetime |
@@ -617,22 +597,6 @@ poetry run uvicorn app.main:app --reload
 # or activate the shell first:
 poetry shell
 uvicorn app.main:app --reload
-```
-
----
-
-**`TypeError: connect() got an unexpected keyword argument 'check_same_thread'`**
-
-You are pointing at PostgreSQL but running an older version of `database.py` that passed a SQLite-only argument to the engine. Pull the latest code — `database.py` now makes `connect_args` conditional.
-
----
-
-**`sqlalchemy.exc.OperationalError: unable to open database file`**
-
-Run the server from the project root, or use an absolute path:
-
-```dotenv
-DATABASE_URL=sqlite:////tmp/ct.db
 ```
 
 ---

@@ -17,8 +17,11 @@ class Settings(BaseSettings):
     debug: bool = False
     environment: str = "development"  # development | staging | production
 
-    # Database
-    database_url: str = "sqlite:///./ct.db"
+    # Prateek: Default targets the docker-compose Postgres service so `docker compose up`
+    # works without tweaking .env. Render injects DATABASE_URL in production. The engine
+    # normalises postgres:// → postgresql+psycopg:// at startup, so pasting Render's URL
+    # verbatim is fine.
+    database_url: str = "postgresql+psycopg://ct_user:ct_pass@db:5432/creator_tools"
 
     # JWT
     jwt_secret_key: str = "change-me-in-production-use-openssl-rand-hex-32"

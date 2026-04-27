@@ -58,7 +58,9 @@ class ABTest(Base):
             "ux_ab_tests_one_running_per_project",
             "project_id",
             unique=True,
-            sqlite_where=text("status = 'running'"),
             postgresql_where=text("status = 'running'"),
+            # Prateek: kept so the SQLite-backed test suite gets the same partial-
+            # uniqueness semantics as the Postgres runtime. Runtime never reaches this.
+            sqlite_where=text("status = 'running'"),
         ),
     )
