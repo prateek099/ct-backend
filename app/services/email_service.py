@@ -146,7 +146,7 @@ def _build_password_reset_html(user_name: str, reset_link: str) -> str:
 
 def _build_welcome_html(user_name: str) -> str:
     """Return the HTML body for the welcome email."""
-    frontend_url = settings.frontend_url if hasattr(settings, "frontend_url") else "http://localhost:5173"
+    frontend_url = settings.frontend_url.rstrip("/")
     return f"""\
 <!DOCTYPE html>
 <html lang="en">

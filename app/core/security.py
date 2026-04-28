@@ -22,11 +22,12 @@ def verify_password(plain: str, hashed: str) -> bool:
 # ── JWT ───────────────────────────────────────────────────────────────────────
 
 def _create_token(subject: Any, expires_delta: timedelta, token_type: str) -> str:
-    expire = datetime.now(timezone.utc) + expires_delta
+    expire = int((datetime.now(timezone.utc) + expires_delta).timestamp())
+    iat = int(datetime.now(timezone.utc).timestamp())
     payload = {
         "sub": str(subject),
         "exp": expire,
-        "iat": datetime.now(timezone.utc),
+        "iat": iat,
         "type": token_type,
     }
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
