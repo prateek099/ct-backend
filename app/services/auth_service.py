@@ -179,8 +179,10 @@ def forgot_password(db: Session, email: str) -> None:
         logger.warning("Forgot password failed: Email not found", email=email)
         raise NotFoundError(messages.EMAIL_NOT_FOUND)
 
+    from urllib.parse import quote
     token = create_password_reset_token(email)
-    reset_link = f"{settings.password_reset_url}?token={token}"
+    base_url = settings.frontend_url.rstrip("/")
+    reset_link = f"{base_url}/reset-password?token={quote(token)}"
     
     try:
         send_password_reset_email(user.email, user.name, reset_link)
@@ -194,8 +196,8 @@ def reset_password(db: Session, payload: ResetPasswordRequest) -> None:
     """
     try:
         token_payload = decode_token(payload.token)
-    except Exception:
-        logger.warning("Reset password failed: Invalid or expired token")
+    except Exception as e:
+        logger.warning(f"Reset password failed: {str(e)}")
         raise BadRequestError(messages.PASSWORD_RESET_TOKEN_INVALID)
 
     if token_payload.get("type") != "password_reset":
